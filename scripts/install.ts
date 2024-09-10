@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NodeSSH } from "node-ssh";
 import readlineSync from "readline-sync";
 
@@ -51,6 +52,28 @@ ssh
 		// Выполнение команд на сервере
 		try {
 			const outline = await installOutline();
+
+			console.log("Installing NodeJS");
+			await ssh.execCommand(
+				"curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash && nvm install 18 && nvm use 18 && npm i -g yarn",
+				{ stdin: "y" }
+			);
+
+			console.log("Installing VPN Server");
+
+			await ssh.execCommand(
+				"cd /root && git clone https://github.com/kirillsaint/vpn-server.git && cd vpn-server && yarn && yarn build && pm2 start dist/index.js --name vpn-server",
+				{ stdin: "y" }
+			);
+
+			const env = `NODE_ENV=production\nPORT=3000\nSECRET_KEY=${randomUUID()}\nOUTLINE_API_URL=${
+				outline.apiUrl
+			}\nOUTLINE_API_FINGERPRINT=${randomUUID()}`;
+
+			await ssh.execCommand(`echo -e "${env}" > /root/vpn-server/.env`, {
+				stdin: "y",
+			});
+			console.log(".env file created successfully");
 		} catch (error) {
 			console.error("Error installing Outline Server:", error);
 		}
