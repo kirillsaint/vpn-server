@@ -35,6 +35,8 @@ async function installOutline(): Promise<{
 
 		return outlineConfig;
 	} else {
+		console.log(result.stdout);
+		console.log(result.stderr);
 		throw new Error("unknown error");
 	}
 }
@@ -54,10 +56,25 @@ ssh
 			const outline = await installOutline();
 
 			console.log("Installing NodeJS");
+			console.log("apt-get update");
+			await ssh.execCommand(`sudo apt-get update`, { stdin: "y" });
+			console.log("installing ca, curl, gnupg");
 			await ssh.execCommand(
-				"curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash && nvm install 18 && nvm use 18 && npm i -g yarn",
+				"sudo apt-get install -y ca-certificates curl gnupg",
 				{ stdin: "y" }
 			);
+			await ssh.execCommand(
+				'echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list',
+				{ stdin: "y" }
+			);
+			console.log("installing nodejs");
+			await ssh.execCommand("sudo apt-get update", { stdin: "y" });
+			await ssh.execCommand("sudo apt-get install nodejs npm -y", {
+				stdin: "y",
+			});
+
+			console.log("installing deps.");
+			await ssh.execCommand("npm i -g yarn pm2", { stdin: "y" });
 
 			console.log("Installing VPN Server");
 
@@ -66,7 +83,9 @@ ssh
 				{ stdin: "y" }
 			);
 
-			const env = `NODE_ENV=production\nPORT=3000\nSECRET_KEY=${randomUUID()}\nOUTLINE_API_URL=${
+			const key = randomUUID();
+
+			const env = `NODE_ENV=production\nPORT=3000\nSECRET_KEY=${key}\nOUTLINE_API_URL=${
 				outline.apiUrl
 			}\nOUTLINE_API_FINGERPRINT=${randomUUID()}`;
 
@@ -74,6 +93,9 @@ ssh
 				stdin: "y",
 			});
 			console.log(".env file created successfully");
+
+			console.log("SERVER STRING");
+			console.log(`${host}:3000/${key}`);
 		} catch (error) {
 			console.error("Error installing Outline Server:", error);
 		}

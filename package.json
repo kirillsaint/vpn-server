@@ -7,7 +7,7 @@
 		"start": "node dist/index.js",
 		"build": "rm -rf dist && tsc --outDir ./dist",
 		"watch": "nodemon src/index.ts --ignore ./public/",
-		"scripts:install": "ts-node scripts/install.ts"
+		"scripts:install": "ts-node src/scripts/install.ts"
 	},
 	"dependencies": {
 		"express": "^4.19.2",
