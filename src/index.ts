@@ -68,7 +68,13 @@ server.post("/clients/create", async (req, res) => {
 
 	await startSSLocal(newClient.id, newClient);
 
-	return res.json({ error: false, newClient });
+	return res.json({
+		error: false,
+		client: {
+			...newClient,
+			socks_port: runningProcesses.get(newClient.id).port,
+		},
+	});
 });
 
 server.get("/clients/get/:id", async (req, res) => {
