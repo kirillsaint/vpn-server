@@ -71,6 +71,40 @@ server.post("/clients/create", async (req, res) => {
 	return res.json({ error: false, newClient });
 });
 
+server.post("/clients/enable", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const client = await outline.getUser(req.body.id);
+	if (!client) {
+		return res.json({ error: true, description: "Client not found" });
+	}
+	await startSSLocal(req.body.id, client);
+	await outline.enableUser(client.id);
+
+	return res.json({ error: false });
+});
+
+server.post("/clients/disable", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const client = await outline.getUser(req.body.id);
+	if (!client) {
+		return res.json({ error: true, description: "Client not found" });
+	}
+	await stopSSLocal(req.body.id);
+	await outline.disableUser(client.id);
+
+	return res.json({ error: false });
+});
+
 server.post("/clients/delete", async (req, res) => {
 	try {
 		if (
