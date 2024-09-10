@@ -71,14 +71,14 @@ server.post("/clients/create", async (req, res) => {
 	return res.json({ error: false, newClient });
 });
 
-server.post("/clients/get", async (req, res) => {
+server.get("/clients/get/:id", async (req, res) => {
 	if (
 		req.header("secret-key") !== env.SECRET_KEY &&
 		env.NODE_ENV === "production"
 	) {
 		return res.status(403).send({ error: true, description: "Bad key" });
 	}
-	const client = await outline.getUser(req.body.id);
+	const client = await outline.getUser(req.params.id);
 	if (!client) {
 		return res.json({ error: true, description: "Client not found" });
 	}
