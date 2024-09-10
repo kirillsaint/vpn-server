@@ -42,7 +42,7 @@ server.get("/clients", async (req, res) => {
 		req.header("secret-key") !== env.SECRET_KEY &&
 		env.NODE_ENV === "production"
 	) {
-		return res.status(404).send({ error: true, description: "Page not found" });
+		return res.status(403).send({ error: true, description: "Bad key" });
 	}
 	const clients = await outline.getUsers();
 	return res.json({
@@ -58,7 +58,7 @@ server.post("/clients/create", async (req, res) => {
 		req.header("secret-key") !== env.SECRET_KEY &&
 		env.NODE_ENV === "production"
 	) {
-		return res.status(404).send({ error: true, description: "Page not found" });
+		return res.status(403).send({ error: true, description: "Bad key" });
 	}
 	let newClient = await outline.createUser();
 	if (req.body.name) {
@@ -77,9 +77,7 @@ server.post("/clients/delete", async (req, res) => {
 			req.header("secret-key") !== env.SECRET_KEY &&
 			env.NODE_ENV === "production"
 		) {
-			return res
-				.status(404)
-				.send({ error: true, description: "Page not found" });
+			return res.status(403).send({ error: true, description: "Bad key" });
 		}
 		const client = await outline.getUser(req.body.id);
 		if (!client) {
