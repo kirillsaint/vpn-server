@@ -55,11 +55,11 @@ export async function startSSLocal(userId: string, userConfig: User) {
 }
 
 export async function stopSSLocal(userId: string) {
-	const process = runningProcesses.get(userId);
+	const { process, port } = runningProcesses.get(userId);
 	if (process) {
 		process?.kill();
 		runningProcesses.delete(userId);
-		console.log(`[ss-local:${userId}:${process.port}] stopped`);
+		console.log(`[ss-local:${userId}:${port}] stopped`);
 		return;
 	}
 	console.error(`No ss-local process found for user ${userId}`);

@@ -95,7 +95,7 @@ ssh
 			console.log(".env file created successfully");
 
 			console.log("SERVER STRING");
-			console.log(`${host}:3000/${key}`);
+			console.log(`http://${host}:3000|${key}`);
 		} catch (error) {
 			console.error("Error installing Outline Server:", error);
 		}
