@@ -30,6 +30,8 @@ export async function startSSLocal(userId: string, userConfig: User) {
 		userConfig.password,
 		"-m",
 		userConfig.method,
+		"-b",
+		"0.0.0.0",
 		"-u",
 	];
 
