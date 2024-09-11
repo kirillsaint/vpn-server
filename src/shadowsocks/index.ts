@@ -30,6 +30,7 @@ export async function startSSLocal(userId: string, userConfig: User) {
 		userConfig.password,
 		"-m",
 		userConfig.method,
+		"-u",
 	];
 
 	const process = spawn(getSSLocalPath(), args);
