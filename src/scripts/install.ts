@@ -94,6 +94,13 @@ ssh
 			});
 			console.log(".env file created successfully");
 
+			console.log("Adding VPN server to crontab for auto start");
+			await ssh.execCommand(
+				'(crontab -l 2>/dev/null; echo "@reboot pm2 resurrect && pm2 start /root/vpn-server/dist/index.js --name vpn-server") | crontab -',
+				{ stdin: "y" }
+			);
+			console.log("Crontab entry added successfully");
+
 			console.log("SERVER STRING");
 			console.log(`http://${host}:3000|${key}`);
 		} catch (error) {
