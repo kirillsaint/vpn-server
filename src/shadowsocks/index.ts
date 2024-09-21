@@ -1,8 +1,16 @@
-import { spawn } from "child_process";
+import { exec, spawn } from "child_process";
+import cron from "node-cron";
 import path from "path";
+import util from "util";
 import { env } from "..";
 import { User } from "../outline/types";
 import { generatePort } from "../utils";
+
+const execAsync = util.promisify(exec);
+
+cron.schedule("0 0 * * *", async () => {
+	await execAsync("pm2 flush");
+});
 
 export const runningProcesses = new Map(); // Сохранение активных процессов
 
