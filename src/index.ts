@@ -47,9 +47,18 @@ server.get("/clients", async (req, res) => {
 	const clients = await outline.getUsers();
 	return res.json({
 		error: false,
-		clients: clients.map(e => {
-			return { ...e, socks_port: runningProcesses.get(e.id).port };
-		}),
+		clients: await Promise.all(
+			clients.map(async e => {
+				let port = 0;
+				let shadowsocks = runningProcesses.get(e.id);
+				if (!shadowsocks) {
+					port = await startSSLocal(e.id, e);
+				} else {
+					port = shadowsocks?.port;
+				}
+				return { ...e, socks_port: runningProcesses.get(e.id).port };
+			})
+		),
 	});
 });
 
@@ -88,10 +97,17 @@ server.get("/clients/get/:id", async (req, res) => {
 	if (!client) {
 		return res.json({ error: true, description: "Client not found" });
 	}
+	let port = 0;
+	let shadowsocks = runningProcesses.get(client.id);
+	if (!shadowsocks) {
+		port = await startSSLocal(client.id, client);
+	} else {
+		port = shadowsocks?.port;
+	}
 
 	return res.json({
 		error: false,
-		client: { ...client, socks_port: runningProcesses.get(client.id).port },
+		client: { ...client, socks_port: port },
 	});
 });
 
