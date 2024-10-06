@@ -21,7 +21,9 @@ export async function installVless() {
 	await fs.promises.rm(".env", { force: true, recursive: true });
 	await fs.promises.writeFile(
 		".env",
-		`${env}\nVLESS_PUBLIC_KEY=${publicKey}\nVLESS_SHORT_ID=${shortId.stdout.trim()}`
+		`${env}\nVLESS_PUBLIC_KEY=${publicKey}\nVLESS_SHORT_ID=${shortId.stdout
+			.replaceAll("\n", "")
+			.trim()}`
 	);
 	await fs.promises.writeFile(
 		"/usr/local/etc/xray/config.json",
