@@ -4,7 +4,6 @@ import type {
 	DataUsageByUser,
 	HttpRequest,
 	Options,
-	Server,
 	ServerMetrics,
 	User,
 } from "./types";
@@ -23,50 +22,6 @@ class OutlineVPN {
 		return await retry(async () => {
 			return await fetchWithPin(req, this.fingerprint, this.timeout);
 		});
-	}
-
-	public async getServer(): Promise<Server> {
-		const response = await this.fetch({
-			url: `${this.apiUrl}/server`,
-			method: "GET",
-		});
-		if (response.ok) {
-			const json = JSON.parse(response.body);
-			return json;
-		} else {
-			throw new Error("No server found");
-		}
-	}
-
-	public async renameServer(name: string): Promise<boolean> {
-		const response = await this.fetch({
-			url: `${this.apiUrl}/name`,
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ name }),
-		});
-
-		return response.ok;
-	}
-
-	public async setDefaultDataLimit(bytes: number): Promise<boolean> {
-		const response = await this.fetch({
-			url: `${this.apiUrl}/server/access-key-data-limit`,
-			method: "PUT",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ limit: { bytes } }),
-		});
-
-		return response.ok;
-	}
-
-	public async deleteDefaultDataLimit(): Promise<boolean> {
-		const response = await this.fetch({
-			url: `${this.apiUrl}/server/access-key-data-limit`,
-			method: "DELETE",
-		});
-
-		return response.ok;
 	}
 
 	public async setHostnameForAccessKeys(hostname: string): Promise<boolean> {
