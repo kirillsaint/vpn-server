@@ -1,7 +1,11 @@
+import { exec } from "child_process";
 import { randomUUID } from "crypto";
 import { promises as fs } from "fs";
+import util from "util";
 import { env } from "..";
 import type { Client, User, VlessConfig } from "./types";
+
+const execAsync = util.promisify(exec);
 
 interface Options {
 	configPath: string;
@@ -27,6 +31,7 @@ class VlessVPN {
 			JSON.stringify(config, null, 2),
 			"utf-8"
 		);
+		await execAsync("systemctl restart xray");
 	}
 
 	// Получить всех пользователей

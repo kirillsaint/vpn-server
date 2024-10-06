@@ -17,11 +17,11 @@ export async function installVless() {
 	const privateKey = generateKeys.stdout.split("\n")[0].split(":")[1].trim();
 	const publicKey = generateKeys.stdout.split("\n")[1].split(":")[1].trim();
 	const env = (await fs.promises.readFile(".env")).toString();
-	const shortId = await execAsync("head -c 16 /dev/urandom | xxd -ps -c 16");
+	const shortId = await execAsync("head -c 8 /dev/urandom | xxd -ps -c 8");
 	await fs.promises.rm(".env", { force: true, recursive: true });
 	await fs.promises.writeFile(
 		".env",
-		`${env}\nVLESS_PUBLIC_KEY=${publicKey}\nVLESS_SHORT_ID=${shortId.stdout}`
+		`${env}\nVLESS_PUBLIC_KEY=${publicKey}\nVLESS_SHORT_ID=${shortId.stdout.trim()}`
 	);
 	await fs.promises.writeFile(
 		"/usr/local/etc/xray/config.json",
@@ -47,8 +47,8 @@ export async function installVless() {
 							dest: "google.com:443",
 							xver: 0,
 							serverNames: ["google.com"],
-							privateKey: privateKey,
-							shortIds: [`${shortId.stdout}`],
+							privateKey: privateKey.trim(),
+							shortIds: [`${shortId.stdout.trim()}`],
 						},
 					},
 				},
