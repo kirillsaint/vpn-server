@@ -29,8 +29,6 @@ export async function installVless() {
 		"/usr/local/etc/xray/config.json",
 		JSON.stringify({
 			log: {
-				access: "/var/log/xray/access.log",
-				error: "/var/log/xray/error.log",
 				loglevel: "warning",
 			},
 			inbounds: [
