@@ -99,13 +99,10 @@ class VlessVPN {
 
 	// Удалить пользователя по id
 	public async deleteUser(id: string): Promise<boolean> {
-		const config = await this.readConfig();
-		const initialLength = config.inbounds[0].settings.clients.length;
+		let config = await this.readConfig();
 		config.inbounds[0].settings.clients =
-			config.inbounds[0].settings.clients.filter(user => user.id !== id);
-		if (config.inbounds[0].settings.clients.length === initialLength) {
-			return false;
-		}
+			config.inbounds[0].settings.clients.filter(e => e.id !== id);
+
 		await this.writeConfig(config);
 		return true;
 	}
