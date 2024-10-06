@@ -10,7 +10,7 @@ const execAsync = util.promisify(exec);
 
 export async function installVless() {
 	await execAsync(
-		"bash <(curl -Ls https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh)"
+		`bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install`
 	);
 	await execSync("mkdir -p /usr/local/etc/xray");
 	const generateKeys = await execAsync("xray x25519");
