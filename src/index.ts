@@ -41,6 +41,10 @@ async function stopShadowsocks() {
 	runningProcesses.clear();
 }
 
+server.get("/", async () => {
+	return { error: false };
+});
+
 server.get("/clients", async (req, res) => {
 	if (
 		req.header("secret-key") !== env.SECRET_KEY &&
