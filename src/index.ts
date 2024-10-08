@@ -41,8 +41,8 @@ async function stopShadowsocks() {
 	runningProcesses.clear();
 }
 
-server.get("/", async () => {
-	return { error: false };
+server.get("/", async (req, res) => {
+	return res.json({ error: false });
 });
 
 server.get("/clients", async (req, res) => {
