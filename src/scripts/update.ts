@@ -17,5 +17,6 @@ export async function disablePorts(execFunc: (command: string) => void) {
 
 disablePorts(async (command: string) => {
 	console.log(command);
-	await execAsync(command);
+	const data = await execAsync(command);
+	console.log(data);
 });
