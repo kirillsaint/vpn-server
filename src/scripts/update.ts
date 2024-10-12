@@ -12,7 +12,7 @@ export async function disablePorts(execFunc: (command: string) => void) {
 	await execFunc("sudo ufw deny 25");
 	await execFunc("sudo ufw deny 465");
 	await execFunc("sudo ufw deny 587");
-	await execFunc("sudo ufw enable");
+	await execFunc("sudo ufw --force enable");
 }
 
 disablePorts(async (command: string) => {
