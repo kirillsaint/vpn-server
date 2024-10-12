@@ -7,7 +7,6 @@ import util from "util";
 const execAsync = util.promisify(exec);
 
 export async function disablePorts(execFunc: (command: string) => void) {
-	await execFunc("sudo ufw reset");
 	await execFunc("sudo ufw default allow incoming");
 	await execFunc("sudo ufw default allow outgoing");
 	await execFunc("sudo ufw deny 25");
