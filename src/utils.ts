@@ -1,11 +1,15 @@
 import * as net from "net";
 
 export async function generatePort() {
+	const blacklist: number[] = [25, 465, 587];
+
 	while (true) {
 		const port = Math.floor(Math.random() * (65535 - 1024 + 1)) + 1024; // Порты от 1024 до 65535
-		const available = await isPortAvailable(port);
-		if (available) {
-			return port;
+		if (!blacklist.includes(port)) {
+			const available = await isPortAvailable(port);
+			if (available) {
+				return port;
+			}
 		}
 	}
 }
