@@ -188,7 +188,7 @@ server.post("/vless/clients/enable", async (req, res) => {
 		return res.status(403).send({ error: true, description: "Bad key" });
 	}
 
-	await outline.enableUser(req.body.id);
+	await vless.enableUser(req.body.id);
 
 	return res.json({ error: false });
 });
