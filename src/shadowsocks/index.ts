@@ -1,8 +1,8 @@
-import { exec, spawn } from "child_process";
+import { ChildProcess, exec, spawn } from "child_process";
 import cron from "node-cron";
 import path from "path";
 import util from "util";
-import { env } from "..";
+import { env, outline } from "..";
 import { User } from "../outline/types";
 import { generatePort } from "../utils";
 
@@ -12,7 +12,11 @@ cron.schedule("0 0 * * *", async () => {
 	await execAsync("pm2 flush");
 });
 
-export const runningProcesses = new Map(); // Сохранение активных процессов
+export let SOCKS_PROCESS: {
+	port: number | null;
+	process: ChildProcess | null;
+	user: User | null;
+} = { port: null, process: null, user: null };
 
 export function getSSLocalPath() {
 	return path.join(
@@ -22,22 +26,25 @@ export function getSSLocalPath() {
 	);
 }
 
-export async function startSSLocal(userId: string, userConfig: User) {
+export async function startSSLocal() {
 	const localPort = await generatePort();
+	SOCKS_PROCESS.port = localPort;
 	const url = env.OUTLINE_API_URL;
 	const parsedUrl = new URL(url);
+
+	const user = await outline.createUser();
 
 	const args = [
 		"-s",
 		parsedUrl.hostname,
 		"-p",
-		userConfig.port.toString(),
+		user.port.toString(),
 		"-l",
 		localPort.toString(),
 		"-k",
-		userConfig.password,
+		user.password,
 		"-m",
-		userConfig.method,
+		user.method,
 		"-b",
 		"0.0.0.0",
 		"-u",
@@ -46,32 +53,31 @@ export async function startSSLocal(userId: string, userConfig: User) {
 	const process = spawn(getSSLocalPath(), args);
 
 	process.stdout?.on("data", data => {
-		console.log(`[ss-local:${userId}:${localPort}] stdout: ${data}`);
+		console.log(`[ss-local:${localPort}] stdout: ${data}`);
 	});
 
 	process.stderr?.on("data", data => {
-		console.error(`[ss-local:${userId}:${localPort}] stderr: ${data}`);
+		console.error(`[ss-local:${localPort}] stderr: ${data}`);
 	});
 
 	process.on("close", code => {
-		console.log(
-			`[ss-local:${userId}:${localPort}] process exited with code ${code}`
-		);
-		runningProcesses.delete(userId); // Удаляем процесс из отслеживаемых
+		console.log(`[ss-local:${localPort}] process exited with code ${code}`);
 	});
 
-	runningProcesses.set(userId, { process, port: localPort });
+	SOCKS_PROCESS.process = process;
 
 	return localPort;
 }
 
-export async function stopSSLocal(userId: string) {
-	const { process, port } = runningProcesses.get(userId);
+export async function stopSSLocal() {
+	const { process, user } = SOCKS_PROCESS;
 	if (process) {
 		process?.kill();
-		runningProcesses.delete(userId);
-		console.log(`[ss-local:${userId}:${port}] stopped`);
+		if (user) {
+			await outline.deleteUser(user.id);
+		}
+		console.log(`[ss-local] stopped`);
 		return;
 	}
-	console.error(`No ss-local process found for user ${userId}`);
+	console.error(`No ss-local process found`);
 }

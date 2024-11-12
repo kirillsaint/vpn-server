@@ -1,7 +1,7 @@
 import express from "express";
 import { load } from "ts-dotenv";
 import { OutlineVPN } from "./outline";
-import { runningProcesses, startSSLocal, stopSSLocal } from "./shadowsocks";
+import { SOCKS_PROCESS, startSSLocal, stopSSLocal } from "./shadowsocks";
 import { VlessVPN } from "./vless";
 
 export const env = load({
@@ -15,7 +15,7 @@ export const env = load({
 });
 
 const server = express();
-const outline = new OutlineVPN({
+export const outline = new OutlineVPN({
 	apiUrl: env.OUTLINE_API_URL,
 	fingerprint: env.OUTLINE_API_FINGERPRINT,
 });
@@ -24,21 +24,11 @@ const vless = new VlessVPN({ configPath: "/usr/local/etc/xray/config.json" });
 server.use(express.json());
 
 async function startAllShadowsocks() {
-	const clients = await outline.getUsers();
-
-	for (const client of clients) {
-		const port = await startSSLocal(client.id, client);
-		runningProcesses.set(client.id, { port });
-	}
+	await startSSLocal();
 }
 
 async function stopShadowsocks() {
-	const clients = await outline.getUsers();
-
-	for (const client of clients) {
-		await stopSSLocal(client.id);
-	}
-	runningProcesses.clear();
+	await stopSSLocal();
 }
 
 server.get("/", async (req, res) => {
@@ -57,14 +47,7 @@ server.get("/clients", async (req, res) => {
 		error: false,
 		clients: await Promise.all(
 			clients.map(async e => {
-				let port = 0;
-				let shadowsocks = runningProcesses.get(e.id);
-				if (!shadowsocks) {
-					port = await startSSLocal(e.id, e);
-				} else {
-					port = shadowsocks?.port;
-				}
-				return { ...e, socks_port: port };
+				return { ...e, socks_port: SOCKS_PROCESS.port };
 			})
 		),
 	});
@@ -94,13 +77,11 @@ server.post("/clients/create", async (req, res) => {
 		newClient.name = req.body.name;
 	}
 
-	const port = await startSSLocal(newClient.id, newClient);
-
 	return res.json({
 		error: false,
 		client: {
 			...newClient,
-			socks_port: port,
+			socks_port: SOCKS_PROCESS.port,
 		},
 	});
 });
@@ -131,17 +112,10 @@ server.get("/clients/get/:id", async (req, res) => {
 	if (!client) {
 		return res.json({ error: true, description: "Client not found" });
 	}
-	let port = 0;
-	let shadowsocks = runningProcesses.get(client.id);
-	if (!shadowsocks) {
-		port = await startSSLocal(client.id, client);
-	} else {
-		port = shadowsocks?.port;
-	}
 
 	return res.json({
 		error: false,
-		client: { ...client, socks_port: port },
+		client: { ...client, socks_port: SOCKS_PROCESS.port },
 	});
 });
 
@@ -174,7 +148,6 @@ server.post("/clients/enable", async (req, res) => {
 	if (!client) {
 		return res.json({ error: true, description: "Client not found" });
 	}
-	await startSSLocal(req.body.id, client);
 	await outline.enableUser(client.id);
 
 	return res.json({ error: false });
@@ -204,7 +177,7 @@ server.post("/clients/disable", async (req, res) => {
 	if (!client) {
 		return res.json({ error: true, description: "Client not found" });
 	}
-	await stopSSLocal(req.body.id);
+
 	await outline.disableUser(client.id);
 
 	return res.json({ error: false });
@@ -239,7 +212,6 @@ server.post("/clients/delete", async (req, res) => {
 		if (!client) {
 			return res.json({ error: true, description: "Client not found" });
 		}
-		await stopSSLocal(req.body.id);
 		await outline.deleteUser(client.id);
 
 		return res.json({ error: false });
