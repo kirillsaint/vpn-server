@@ -27,12 +27,14 @@ export function getSSLocalPath() {
 }
 
 export async function startSSLocal() {
+	console.log("starting ss-local");
 	const localPort = await generatePort();
 	SOCKS_PROCESS.port = localPort;
 	const url = env.OUTLINE_API_URL;
 	const parsedUrl = new URL(url);
 
 	const user = await outline.createUser();
+	SOCKS_PROCESS.user = user;
 
 	const args = [
 		"-s",
@@ -70,6 +72,7 @@ export async function startSSLocal() {
 }
 
 export async function stopSSLocal() {
+	console.log("stopping ss-local");
 	const { process, user } = SOCKS_PROCESS;
 	if (process) {
 		process?.kill();
