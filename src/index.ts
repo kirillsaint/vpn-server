@@ -1,7 +1,7 @@
 import express from "express";
 import { load } from "ts-dotenv";
 import { OutlineVPN } from "./outline";
-import { SOCKS_PROCESS, startSSLocal, stopSSLocal } from "./shadowsocks";
+import { getSocks5ProxyPort, startSSLocal, stopSSLocal } from "./shadowsocks";
 import { VlessVPN } from "./vless";
 
 export const env = load({
@@ -47,7 +47,7 @@ server.get("/clients", async (req, res) => {
 		error: false,
 		clients: await Promise.all(
 			clients.map(async e => {
-				return { ...e, socks_port: SOCKS_PROCESS.port };
+				return { ...e, socks_port: await getSocks5ProxyPort() };
 			})
 		),
 	});
@@ -81,7 +81,7 @@ server.post("/clients/create", async (req, res) => {
 		error: false,
 		client: {
 			...newClient,
-			socks_port: SOCKS_PROCESS.port,
+			socks_port: await getSocks5ProxyPort(),
 		},
 	});
 });
@@ -115,7 +115,7 @@ server.get("/clients/get/:id", async (req, res) => {
 
 	return res.json({
 		error: false,
-		client: { ...client, socks_port: SOCKS_PROCESS.port },
+		client: { ...client, socks_port: await getSocks5ProxyPort() },
 	});
 });
 

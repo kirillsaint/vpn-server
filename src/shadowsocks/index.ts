@@ -84,3 +84,11 @@ export async function stopSSLocal() {
 	}
 	console.error(`No ss-local process found`);
 }
+
+export async function getSocks5ProxyPort() {
+	if (!process) {
+		await startSSLocal();
+	}
+
+	return SOCKS_PROCESS.port;
+}
