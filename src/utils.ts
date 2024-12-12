@@ -1,7 +1,12 @@
 import * as net from "net";
 
 export async function generatePort() {
-	const blacklist: number[] = [25, 465, 587];
+	const blacklist = [
+		// SMTP
+		25, 465, 587,
+		// Torrent
+		6881, 6882, 6883, 6884, 6885, 6886, 6887, 6888, 6889,
+	];
 
 	while (true) {
 		const port = Math.floor(Math.random() * (65535 - 1024 + 1)) + 1024; // Порты от 1024 до 65535

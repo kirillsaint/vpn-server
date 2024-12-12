@@ -45,11 +45,7 @@ server.get("/clients", async (req, res) => {
 	const clients = await outline.getUsers();
 	return res.json({
 		error: false,
-		clients: await Promise.all(
-			clients.map(async e => {
-				return { ...e, socks_port: await getSocks5ProxyPort() };
-			})
-		),
+		clients: clients,
 	});
 });
 
@@ -115,7 +111,7 @@ server.get("/clients/get/:id", async (req, res) => {
 
 	return res.json({
 		error: false,
-		client: { ...client, socks_port: await getSocks5ProxyPort() },
+		client: client,
 	});
 });
 
@@ -239,6 +235,16 @@ server.post("/vless/clients/delete", async (req, res) => {
 	} catch (error) {
 		return res.json({ error: true, description: `${error}` });
 	}
+});
+
+server.get("/socks", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	return res.json({ error: false, port: await getSocks5ProxyPort() });
 });
 
 server.listen(env.PORT);
