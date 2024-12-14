@@ -45,7 +45,11 @@ server.get("/clients", async (req, res) => {
 	const clients = await outline.getUsers();
 	return res.json({
 		error: false,
-		clients: clients,
+		clients: await Promise.all(
+			clients.map(async e => {
+				return { ...e, socks_port: await getSocks5ProxyPort() };
+			})
+		),
 	});
 });
 
@@ -111,7 +115,7 @@ server.get("/clients/get/:id", async (req, res) => {
 
 	return res.json({
 		error: false,
-		client: client,
+		client: { ...client, socks_port: await getSocks5ProxyPort() },
 	});
 });
 
