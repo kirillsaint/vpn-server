@@ -1,4 +1,3 @@
-import cors from "cors";
 import express from "express";
 import { load } from "ts-dotenv";
 import { OutlineVPN } from "./outline";
@@ -23,7 +22,6 @@ export const outline = new OutlineVPN({
 const vless = new VlessVPN({ configPath: "/usr/local/etc/xray/config.json" });
 
 server.use(express.json());
-server.use(cors({ origin: "*" }));
 
 async function startAllShadowsocks() {
 	await startSSLocal();
@@ -34,6 +32,7 @@ async function stopShadowsocks() {
 }
 
 server.get("/", async (req, res) => {
+	res.setHeader("Access-Control-Allow-Origin", "*");
 	return res.json({ error: false });
 });
 
