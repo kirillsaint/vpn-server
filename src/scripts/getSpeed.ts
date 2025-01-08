@@ -9,16 +9,17 @@ export default async function getSpeed() {
 		console.log("Checking if speedtest-cli is installed...");
 
 		// Проверяем наличие speedtest-cli
-		const checkSpeedtest = await execAsync("which speedtest-cli");
-		if (!checkSpeedtest.stdout) {
+		try {
+			await execAsync("which speedtest-cli");
+
+			console.log("speedtest-cli is already installed.");
+		} catch (error) {
 			console.log("speedtest-cli not found, installing...");
 			await execAsync("sudo apt update");
 
 			await execAsync("sudo apt install -y speedtest-cli");
 
 			console.log("speedtest-cli installed successfully.");
-		} else {
-			console.log("speedtest-cli is already installed.");
 		}
 
 		console.log("Running speed test...");
