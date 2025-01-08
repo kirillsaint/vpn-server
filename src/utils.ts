@@ -1,4 +1,7 @@
+import axios from "axios";
 import * as net from "net";
+import os from "os";
+import { env } from ".";
 
 export async function generatePort() {
 	const blacklist = [
@@ -60,3 +63,43 @@ export const isPortAvailable = (port: number): Promise<boolean> => {
 		server.listen(port);
 	});
 };
+
+export function getServerIPs(): { ipv4: string | null; ipv6: string | null } {
+	const networkInterfaces = os.networkInterfaces();
+
+	let ipv4: string | null = null;
+	let ipv6: string | null = null;
+
+	for (const interfaceName in networkInterfaces) {
+		const interfaces = networkInterfaces[interfaceName];
+		if (!interfaces) continue;
+
+		for (const net of interfaces) {
+			if (net.family === "IPv4" && !net.internal) {
+				ipv4 = net.address;
+			} else if (net.family === "IPv6" && !net.internal) {
+				ipv6 = net.address;
+			}
+
+			// Прерываем, если оба адреса найдены
+			if (ipv4 && ipv6) break;
+		}
+
+		if (ipv4 && ipv6) break;
+	}
+
+	return { ipv4, ipv6 };
+}
+
+export async function handleError(func: string, text: string) {
+	try {
+		await axios.post("https://netblocknet.com/server-api/handle_error", {
+			ip: getServerIPs().ipv4,
+			key: env.SECRET_KEY,
+			func,
+			text,
+		});
+	} catch (error) {
+		console.error(error);
+	}
+}

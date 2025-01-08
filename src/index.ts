@@ -1,7 +1,11 @@
+import axios from "axios";
 import express from "express";
+import cron from "node-cron";
 import { load } from "ts-dotenv";
 import { OutlineVPN } from "./outline";
+import getSpeed from "./scripts/getSpeed";
 import { getSocks5ProxyPort, startSSLocal, stopSSLocal } from "./shadowsocks";
+import { getServerIPs, handleError } from "./utils";
 import { VlessVPN } from "./vless";
 
 export const env = load({
@@ -22,6 +26,21 @@ export const outline = new OutlineVPN({
 const vless = new VlessVPN({ configPath: "/usr/local/etc/xray/config.json" });
 
 server.use(express.json());
+
+async function setIPv6() {
+	try {
+		const ips = getServerIPs();
+		if (ips.ipv6) {
+			await axios.post("https://netblocknet.com/server-api/handle_error", {
+				ip: ips.ipv4,
+				key: env.SECRET_KEY,
+				ipv6: ips.ipv6,
+			});
+		}
+	} catch (error) {
+		handleError("setIPv6", `${error}`);
+	}
+}
 
 async function startAllShadowsocks() {
 	await startSSLocal();
@@ -255,6 +274,23 @@ server.get("/socks", async (req, res) => {
 server.listen(env.PORT);
 
 startAllShadowsocks();
+setIPv6();
+
+cron.schedule("*/30 * * * *", async () => {
+	const speed = await getSpeed();
+	if (speed) {
+		try {
+			await axios.post("https://netblocknet.com/server-api/handle_error", {
+				ip: getServerIPs().ipv4,
+				key: env.SECRET_KEY,
+				upload: speed.upload,
+				download: speed.download,
+			});
+		} catch (error) {
+			handleError("updateSpeed-request", `${error}`);
+		}
+	}
+});
 
 process.once("SIGINT", stopShadowsocks);
 process.once("SIGTERM", stopShadowsocks);
