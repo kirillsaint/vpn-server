@@ -32,7 +32,7 @@ async function setIPv6() {
 	try {
 		const ips = getServerIPs();
 		if (ips.ipv6) {
-			await axios.post(`https://${env.API_URL}/server-api/handle_error`, {
+			await axios.post(`https://${env.API_URL}/server-api/set_ipv6`, {
 				ip: ips.ipv4,
 				key: env.SECRET_KEY,
 				ipv6: ips.ipv6,

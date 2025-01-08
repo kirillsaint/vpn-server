@@ -67,8 +67,6 @@ export const isPortAvailable = (port: number): Promise<boolean> => {
 export function getServerIPs(): { ipv4: string | null; ipv6: string | null } {
 	const networkInterfaces = os.networkInterfaces();
 
-	console.log(networkInterfaces);
-
 	let ipv4: string | null = null;
 	let ipv6: string | null = null;
 
