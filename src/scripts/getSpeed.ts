@@ -31,10 +31,6 @@ export default async function getSpeed() {
 		// Запускаем тест скорости
 		const response = await execAsync("speedtest-cli --json --secure");
 
-		if (response.stderr) {
-			throw new Error(`Error running speedtest-cli: ${response.stderr}`);
-		}
-
 		const speedTestResult = JSON.parse(response.stdout);
 
 		// Преобразуем результаты из бит/с в Мбит/с

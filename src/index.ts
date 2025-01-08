@@ -278,7 +278,7 @@ server.listen(env.PORT);
 
 startAllShadowsocks();
 
-cron.schedule("*/30 * * * *", async () => {
+const updateSpeed = async () => {
 	const speed = await getSpeed();
 	if (speed) {
 		try {
@@ -292,7 +292,10 @@ cron.schedule("*/30 * * * *", async () => {
 			handleError("updateSpeed-request", `${error}`);
 		}
 	}
-});
+};
+updateSpeed();
+
+cron.schedule("*/30 * * * *", updateSpeed);
 
 process.once("SIGINT", stopShadowsocks);
 process.once("SIGTERM", stopShadowsocks);
