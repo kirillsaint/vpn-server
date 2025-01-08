@@ -272,10 +272,11 @@ server.get("/socks", async (req, res) => {
 	return res.json({ error: false, port: await getSocks5ProxyPort() });
 });
 
+setIPv6();
+
 server.listen(env.PORT);
 
 startAllShadowsocks();
-setIPv6();
 
 cron.schedule("*/30 * * * *", async () => {
 	const speed = await getSpeed();
