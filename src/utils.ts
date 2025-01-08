@@ -93,7 +93,7 @@ export function getServerIPs(): { ipv4: string | null; ipv6: string | null } {
 
 export async function handleError(func: string, text: string) {
 	try {
-		await axios.post("https://netblocknet.com/server-api/handle_error", {
+		await axios.post(`https://${env.API_URL}/server-api/handle_error`, {
 			ip: getServerIPs().ipv4,
 			key: env.SECRET_KEY,
 			func,

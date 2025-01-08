@@ -10,6 +10,7 @@ import { VlessVPN } from "./vless";
 
 export const env = load({
 	NODE_ENV: ["production" as const, "development" as const],
+	API_URL: String,
 	PORT: Number,
 	SECRET_KEY: String,
 	OUTLINE_API_URL: String,
@@ -31,7 +32,7 @@ async function setIPv6() {
 	try {
 		const ips = getServerIPs();
 		if (ips.ipv6) {
-			await axios.post("https://netblocknet.com/server-api/handle_error", {
+			await axios.post(`https://${env.API_URL}/server-api/handle_error`, {
 				ip: ips.ipv4,
 				key: env.SECRET_KEY,
 				ipv6: ips.ipv6,
@@ -280,7 +281,7 @@ cron.schedule("*/30 * * * *", async () => {
 	const speed = await getSpeed();
 	if (speed) {
 		try {
-			await axios.post("https://netblocknet.com/server-api/handle_error", {
+			await axios.post(`https://${env.API_URL}/server-api/handle_error`, {
 				ip: getServerIPs().ipv4,
 				key: env.SECRET_KEY,
 				upload: speed.upload,
