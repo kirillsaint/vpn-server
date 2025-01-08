@@ -3,6 +3,8 @@ import * as net from "net";
 import os from "os";
 import { env } from ".";
 
+export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 export async function generatePort() {
 	const blacklist = [
 		// SMTP

@@ -5,7 +5,7 @@ import { load } from "ts-dotenv";
 import { OutlineVPN } from "./outline";
 import getSpeed from "./scripts/getSpeed";
 import { getSocks5ProxyPort, startSSLocal, stopSSLocal } from "./shadowsocks";
-import { getServerIPs, handleError } from "./utils";
+import { getServerIPs, handleError, sleep } from "./utils";
 import { VlessVPN } from "./vless";
 
 export const env = load({
@@ -279,6 +279,7 @@ server.listen(env.PORT);
 startAllShadowsocks();
 
 const updateSpeed = async () => {
+	await sleep(30000);
 	const speed = await getSpeed();
 	if (speed) {
 		try {
