@@ -1,6 +1,6 @@
 import { exec } from "child_process";
 import util from "util";
-import { handleError } from "../utils";
+import { handleError, retry } from "../utils";
 
 const execAsync = util.promisify(exec);
 
@@ -29,21 +29,25 @@ export default async function getSpeed() {
 		console.log("Running speed test...");
 
 		// Запускаем тест скорости
-		const response = await execAsync("speedtest-cli --json --secure");
+		const result = await retry(async () => {
+			const response = await execAsync("speedtest-cli --json --secure");
 
-		const speedTestResult = JSON.parse(response.stdout);
+			const speedTestResult = JSON.parse(response.stdout);
 
-		// Преобразуем результаты из бит/с в Мбит/с
-		const downloadMbps = (speedTestResult.download / 1_000_000).toFixed(2);
-		const uploadMbps = (speedTestResult.upload / 1_000_000).toFixed(2);
+			// Преобразуем результаты из бит/с в Мбит/с
+			const downloadMbps = (speedTestResult.download / 1_000_000).toFixed(2);
+			const uploadMbps = (speedTestResult.upload / 1_000_000).toFixed(2);
 
-		console.log(`Download Speed: ${downloadMbps} Mbps`);
-		console.log(`Upload Speed: ${uploadMbps} Mbps`);
+			console.log(`Download Speed: ${downloadMbps} Mbps`);
+			console.log(`Upload Speed: ${uploadMbps} Mbps`);
 
-		return {
-			download: parseFloat(downloadMbps) * 100,
-			upload: parseFloat(uploadMbps) * 100,
-		};
+			return {
+				download: parseFloat(downloadMbps) * 100,
+				upload: parseFloat(uploadMbps) * 100,
+			};
+		}, 3);
+
+		return result;
 	} catch (error: any) {
 		console.error(`Error: ${error.message}`);
 		handleError("getSpeed", `${error}`);
