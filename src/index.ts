@@ -282,7 +282,7 @@ const updateSpeed = async () => {
 	const speed = await getSpeed();
 	if (speed) {
 		try {
-			await axios.post(`https://${env.API_URL}/server-api/handle_error`, {
+			await axios.post(`https://${env.API_URL}/server-api/set_speed`, {
 				ip: getServerIPs().ipv4,
 				key: env.SECRET_KEY,
 				upload: speed.upload,
