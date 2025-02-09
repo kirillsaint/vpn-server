@@ -59,7 +59,7 @@ export const getLoad = async () => {
 	const memoryUsage = (memData.active / memData.total) * 100;
 
 	// 3. Получаем статистику по сети для нужного интерфейса (например, 'eth0')
-	const netStats = await si.networkStats("eth0");
+	const netStats = await si.networkStats("ens3");
 	// Рассчитаем процент загрузки сети для входящего и исходящего трафика.
 	const rxPercent = Math.min((netStats[0].rx_sec / MAX_NETWORK_BPS) * 100, 100);
 	const txPercent = Math.min((netStats[0].tx_sec / MAX_NETWORK_BPS) * 100, 100);
