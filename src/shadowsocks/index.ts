@@ -62,8 +62,14 @@ export async function startSSLocal() {
 		console.error(`[ss-local:${localPort}] stderr: ${data}`);
 	});
 
-	process.on("close", code => {
+	process.on("close", async code => {
 		console.log(`[ss-local:${localPort}] process exited with code ${code}`);
+		if (SOCKS_PROCESS.user) {
+			await outline.deleteUser(user.id);
+		}
+		SOCKS_PROCESS.process = null;
+		SOCKS_PROCESS.port = null;
+		SOCKS_PROCESS.user = null;
 	});
 
 	SOCKS_PROCESS.process = process;

@@ -5,7 +5,7 @@ import { load } from "ts-dotenv";
 import { OutlineVPN } from "./outline";
 import getSpeed from "./scripts/getSpeed";
 import { getSocks5ProxyPort, startSSLocal, stopSSLocal } from "./shadowsocks";
-import { getServerIPs, handleError, sleep } from "./utils";
+import { getLoad, getServerIPs, handleError, sleep } from "./utils";
 import { VlessVPN } from "./vless";
 
 export const env = load({
@@ -294,9 +294,23 @@ const updateSpeed = async () => {
 		}
 	}
 };
+const updateLoad = async () => {
+	const load = await getLoad();
+
+	try {
+		await axios.post(`https://${env.API_URL}/server-api/set_load`, {
+			ip: getServerIPs().ipv4,
+			key: env.SECRET_KEY,
+			...load,
+		});
+	} catch (error) {
+		handleError("setLoad-request", `${error}`);
+	}
+};
 updateSpeed();
 
 cron.schedule("*/30 * * * *", updateSpeed);
+cron.schedule("* * * * *", updateLoad);
 
 process.once("SIGINT", stopShadowsocks);
 process.once("SIGTERM", stopShadowsocks);

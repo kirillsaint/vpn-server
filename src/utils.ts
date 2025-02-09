@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as net from "net";
 import os from "os";
+import si from "systeminformation";
 import { env } from ".";
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -45,6 +46,45 @@ export function retry<T>(
 		attempt(retries);
 	});
 }
+
+const MAX_NETWORK_BPS = (300 * 1024 * 1024) / 8; // 100 Мбит/с
+
+export const getLoad = async () => {
+	// 1. Получаем загрузку CPU
+	const currentLoadData = await si.currentLoad();
+	const cpuLoad = currentLoadData.currentLoad; // уже в процентах
+
+	// 2. Получаем использование памяти
+	const memData = await si.mem();
+	const memoryUsage = (memData.active / memData.total) * 100;
+
+	// 3. Получаем статистику по сети для нужного интерфейса (например, 'eth0')
+	const netStats = await si.networkStats("eth0");
+	// Рассчитаем процент загрузки сети для входящего и исходящего трафика.
+	const rxPercent = Math.min((netStats[0].rx_sec / MAX_NETWORK_BPS) * 100, 100);
+	const txPercent = Math.min((netStats[0].tx_sec / MAX_NETWORK_BPS) * 100, 100);
+	// Берём среднее значение между входящим и исходящим трафиком:
+	const networkUsage = (rxPercent + txPercent) / 2;
+
+	// 4. Определяем веса для каждого показателя (сумма весов = 1).
+	// Эти значения можно корректировать в зависимости от приоритетов.
+	const weightCpu = 0.5; // CPU часто является критичным ресурсом
+	const weightMemory = 0.3; // использование памяти
+	const weightNetwork = 0.2; // нагрузка на сеть
+
+	// 5. Вычисляем общий показатель нагрузки как взвешенное среднее:
+	const overallLoad =
+		cpuLoad * weightCpu +
+		memoryUsage * weightMemory +
+		networkUsage * weightNetwork;
+
+	return {
+		cpu_load: Number(cpuLoad.toFixed(2)),
+		memory_usage: Number(memoryUsage.toFixed(2)),
+		network_usage: Number(networkUsage.toFixed(2)),
+		overall_load: Number(overallLoad.toFixed(2)),
+	};
+};
 
 export const isPortAvailable = (port: number): Promise<boolean> => {
 	return new Promise(resolve => {
