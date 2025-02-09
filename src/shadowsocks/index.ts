@@ -70,6 +70,7 @@ export async function startSSLocal() {
 		SOCKS_PROCESS.process = null;
 		SOCKS_PROCESS.port = null;
 		SOCKS_PROCESS.user = null;
+		await startSSLocal();
 	});
 
 	SOCKS_PROCESS.process = process;
