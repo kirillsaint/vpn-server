@@ -3,6 +3,7 @@ import express from "express";
 import cron from "node-cron";
 import { load } from "ts-dotenv";
 import { OutlineVPN } from "./outline";
+import random from "./random";
 import getSpeed from "./scripts/getSpeed";
 import { getSocks5ProxyPort, startSSLocal, stopSSLocal } from "./shadowsocks";
 import { getLoad, getServerIPs, handleError, sleep } from "./utils";
@@ -279,7 +280,7 @@ server.listen(env.PORT);
 startAllShadowsocks();
 
 const updateSpeed = async () => {
-	await sleep(30000);
+	await sleep(180000 + random.number(5000, 600000));
 	const speed = await getSpeed();
 	if (speed) {
 		try {
