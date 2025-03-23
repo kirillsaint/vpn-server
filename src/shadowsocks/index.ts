@@ -93,7 +93,7 @@ export async function stopSSLocal() {
 }
 
 export async function getSocks5ProxyPort() {
-	if (!process) {
+	if (!SOCKS_PROCESS.process) {
 		await startSSLocal();
 	}
 
