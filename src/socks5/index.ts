@@ -34,10 +34,6 @@ export async function startSocks5(): Promise<number> {
 	const server = createServer();
 	SOCKS_PROCESS.server = server; // сохраняем экземпляр
 
-	server.setAuthHandler(() => {
-		return true;
-	});
-
 	// // Событие успешного начала прослушивания
 	// server.on("listening", () => {
 	// 	console.log(`[socks5] listening on 0.0.0.0:${localPort}`);
