@@ -6,7 +6,7 @@ import util from "util";
 import { OutlineVPN } from "./outline";
 import random from "./random";
 import getSpeed from "./scripts/getSpeed";
-import { getSocks5ProxyPort, startSocks5 } from "./socks5";
+import { getSocks5ProxyPort, startSocks5, stopSocks5 } from "./socks5";
 import { getLoad, getServerIPs, handleError, sleep } from "./utils";
 import { VlessVPN } from "./vless";
 
@@ -273,6 +273,14 @@ if (env.TYPE !== "chrome") {
 		}
 
 		return res.json({ error: false, port: await getSocks5ProxyPort() });
+	});
+
+	process.on("SIGTERM", () => {
+		stopSocks5();
+	});
+
+	process.on("SIGINT", () => {
+		stopSocks5();
 	});
 }
 
