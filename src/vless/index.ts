@@ -42,7 +42,7 @@ class VlessVPN {
 			id: client.id,
 			flow: client.flow || "",
 			key: `vless://${client.id}@${
-				new URL(env.OUTLINE_API_URL).hostname
+				new URL(env?.OUTLINE_API_URL || "").hostname
 			}:443?flow=${client.flow}&type=tcp&security=reality&fp=chrome&sni=${
 				config.inbounds[0].streamSettings.realitySettings.serverNames[0]
 			}&pbk=${env.VLESS_PUBLIC_KEY}&sid=${env.VLESS_SHORT_ID}&spx=%2F`,
@@ -60,7 +60,7 @@ class VlessVPN {
 				id: client.id,
 				flow: client.flow || "",
 				key: `vless://${client.id}@${
-					new URL(env.OUTLINE_API_URL).hostname
+					new URL(env?.OUTLINE_API_URL || "").hostname
 				}:443?flow=${client.flow}&type=tcp&security=reality&fp=chrome&sni=${
 					config.inbounds[0].streamSettings.realitySettings.serverNames[0]
 				}&pbk=${env.VLESS_PUBLIC_KEY}&sid=${env.VLESS_SHORT_ID}&spx=%2F`,
@@ -84,7 +84,7 @@ class VlessVPN {
 			id: newUser.id,
 			flow: newUser.flow,
 			key: `vless://${newUser.id}@${
-				new URL(env.OUTLINE_API_URL).hostname
+				new URL(env?.OUTLINE_API_URL || "").hostname
 			}:443?flow=${newUser.flow}&type=tcp&security=reality&fp=chrome&sni=${
 				config.inbounds[0].streamSettings.realitySettings.serverNames[0]
 			}&pbk=${env.VLESS_PUBLIC_KEY}&sid=${env.VLESS_SHORT_ID}&spx=%2F`,
