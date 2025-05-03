@@ -10,13 +10,13 @@
 		"update": "ts-node src/scripts/update.ts"
 	},
 	"dependencies": {
+		"@pondwader/socks5-server": "^1.0.10",
 		"axios": "^1.7.9",
 		"cors": "^2.8.5",
 		"express": "^4.19.2",
 		"input": "^1.0.1",
 		"net": "^1.0.2",
 		"node-cron": "^3.0.3",
-		"socksv5": "^0.0.6",
 		"systeminformation": "^5.25.11",
 		"ts-dotenv": "^0.9.1"
 	},
