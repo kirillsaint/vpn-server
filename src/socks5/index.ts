@@ -85,3 +85,11 @@ export async function getSocks5ProxyPort(): Promise<number | null> {
 	}
 	return SOCKS_PROCESS.port;
 }
+
+process.on("SIGTERM", () => {
+	stopSocks5();
+});
+
+process.on("SIGINT", () => {
+	stopSocks5();
+});
