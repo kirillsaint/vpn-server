@@ -1,7 +1,6 @@
 // src/socks5/server.ts
 import { createServer, Socks5Server } from "@pondwader/socks5-server";
 import cron from "node-cron";
-import { EventEmitter } from "stream";
 import util from "util";
 import { generatePort } from "../utils";
 
@@ -32,30 +31,29 @@ export async function startSocks5(): Promise<number> {
 	SOCKS_PROCESS.port = localPort;
 
 	// Запускаем сервер: по умолчанию слушает 0.0.0.0
-	const server = createServer({ port: localPort }) as Socks5Server &
-		EventEmitter;
+	const server = createServer({ port: localPort });
 	SOCKS_PROCESS.server = server; // сохраняем экземпляр
 
-	// Событие успешного начала прослушивания
-	server.on("listening", () => {
-		console.log(`[socks5] listening on 0.0.0.0:${localPort}`);
-	}); // 'listening' эмитится при bind() :contentReference[oaicite:6]{index=6}
+	// // Событие успешного начала прослушивания
+	// server.on("listening", () => {
+	// 	console.log(`[socks5] listening on 0.0.0.0:${localPort}`);
+	// }); // 'listening' эмитится при bind() :contentReference[oaicite:6]{index=6}
 
-	// Обрабатываем фатальные ошибки и рестартуемся
-	server.on("error", err => {
-		console.error(`[socks5:${localPort}] error:`, err);
-		SOCKS_PROCESS.server = null;
-		SOCKS_PROCESS.port = null;
-		setTimeout(() => startSocks5(), 5000);
-	});
+	// // Обрабатываем фатальные ошибки и рестартуемся
+	// server.on("error", err => {
+	// 	console.error(`[socks5:${localPort}] error:`, err);
+	// 	SOCKS_PROCESS.server = null;
+	// 	SOCKS_PROCESS.port = null;
+	// 	setTimeout(() => startSocks5(), 5000);
+	// });
 
-	// Если сервер был закрыт, перезапускаем
-	server.on("close", () => {
-		console.warn(`[socks5:${localPort}] closed, restarting in 5s`);
-		SOCKS_PROCESS.server = null;
-		SOCKS_PROCESS.port = null;
-		setTimeout(() => startSocks5(), 5000);
-	}); // 'close' эмитится после server.close() :contentReference[oaicite:7]{index=7}
+	// // Если сервер был закрыт, перезапускаем
+	// server.on("close", () => {
+	// 	console.warn(`[socks5:${localPort}] closed, restarting in 5s`);
+	// 	SOCKS_PROCESS.server = null;
+	// 	SOCKS_PROCESS.port = null;
+	// 	setTimeout(() => startSocks5(), 5000);
+	// }); // 'close' эмитится после server.close() :contentReference[oaicite:7]{index=7}
 
 	server.listen(localPort, "0.0.0.0");
 
