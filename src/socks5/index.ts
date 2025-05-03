@@ -55,8 +55,6 @@ export async function startSocks5(): Promise<number> {
 	// 	setTimeout(() => startSocks5(), 5000);
 	// }); // 'close' эмитится после server.close() :contentReference[oaicite:7]{index=7}
 
-	server.listen(localPort, "0.0.0.0");
-
 	return localPort;
 }
 
