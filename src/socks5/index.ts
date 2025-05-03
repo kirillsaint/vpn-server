@@ -31,8 +31,12 @@ export async function startSocks5(): Promise<number> {
 	SOCKS_PROCESS.port = localPort;
 
 	// Запускаем сервер: по умолчанию слушает 0.0.0.0
-	const server = createServer({ port: localPort });
+	const server = createServer();
 	SOCKS_PROCESS.server = server; // сохраняем экземпляр
+
+	server.setAuthHandler(() => {
+		return true;
+	});
 
 	// // Событие успешного начала прослушивания
 	// server.on("listening", () => {
@@ -54,6 +58,14 @@ export async function startSocks5(): Promise<number> {
 	// 	SOCKS_PROCESS.port = null;
 	// 	setTimeout(() => startSocks5(), 5000);
 	// }); // 'close' эмитится после server.close() :contentReference[oaicite:7]{index=7}
+
+	server.listen(localPort, "127.0.0.1", () => {
+		console.log(`proxy listening on port ${localPort}`);
+	});
+
+	server.setConnectionHandler((conn, sendStatus) => {
+		console.log(conn);
+	});
 
 	return localPort;
 }
