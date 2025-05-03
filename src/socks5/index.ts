@@ -1,6 +1,5 @@
 // src/socks5/server.ts
 import { createServer, Socks5Server } from "@pondwader/socks5-server";
-import net from "net";
 import cron from "node-cron";
 import util from "util";
 import { generatePort } from "../utils";
@@ -58,34 +57,6 @@ export async function startSocks5(): Promise<number> {
 
 	server.listen(localPort, "0.0.0.0", () => {
 		console.log(`proxy listening on port ${localPort}`);
-	});
-
-	server.setConnectionHandler((conn, sendStatus) => {
-		const { socket, destAddress, destPort, command } = conn;
-		console.log(
-			"⚙️ SOCKS5-запрос:",
-			command,
-			"→",
-			destAddress + ":" + destPort
-		);
-
-		// 1) Говорим клиенту «можно слать данные»
-		sendStatus("REQUEST_GRANTED");
-
-		// 2) Подключаемся к целевому хосту
-		const remote = net.connect(destPort, destAddress, () => {
-			// 3) Связываем потоки
-			socket.pipe(remote);
-			remote.pipe(socket);
-		});
-
-		// Обработка ошибок удалённого соединения
-		remote.on("error", err => {
-			console.error("❌ Ошибка подключения к назначению:", err);
-			// Можно вернуть клиенту HOST_UNREACHABLE
-			sendStatus("HOST_UNREACHABLE");
-			socket.end();
-		});
 	});
 
 	return localPort;
