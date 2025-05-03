@@ -1,15 +1,6 @@
 // src/socks5/server.ts
 import { createServer, Socks5Server } from "@pondwader/socks5-server";
-import cron from "node-cron";
-import util from "util";
 import { generatePort } from "../utils";
-
-const execAsync = util.promisify(require("child_process").exec);
-
-// Каждый день в полночь сбрасываем логи PM2
-cron.schedule("0 0 * * *", async () => {
-	await execAsync("pm2 flush");
-});
 
 export let SOCKS_PROCESS: {
 	port: number | null;
@@ -33,27 +24,6 @@ export async function startSocks5(): Promise<number> {
 	// Запускаем сервер: по умолчанию слушает 0.0.0.0
 	const server = createServer();
 	SOCKS_PROCESS.server = server; // сохраняем экземпляр
-
-	// // Событие успешного начала прослушивания
-	// server.on("listening", () => {
-	// 	console.log(`[socks5] listening on 0.0.0.0:${localPort}`);
-	// }); // 'listening' эмитится при bind() :contentReference[oaicite:6]{index=6}
-
-	// // Обрабатываем фатальные ошибки и рестартуемся
-	// server.on("error", err => {
-	// 	console.error(`[socks5:${localPort}] error:`, err);
-	// 	SOCKS_PROCESS.server = null;
-	// 	SOCKS_PROCESS.port = null;
-	// 	setTimeout(() => startSocks5(), 5000);
-	// });
-
-	// // Если сервер был закрыт, перезапускаем
-	// server.on("close", () => {
-	// 	console.warn(`[socks5:${localPort}] closed, restarting in 5s`);
-	// 	SOCKS_PROCESS.server = null;
-	// 	SOCKS_PROCESS.port = null;
-	// 	setTimeout(() => startSocks5(), 5000);
-	// }); // 'close' эмитится после server.close() :contentReference[oaicite:7]{index=7}
 
 	server.listen(localPort, "0.0.0.0", () => {
 		console.log(`proxy listening on port ${localPort}`);
@@ -87,11 +57,3 @@ export async function getSocks5ProxyPort(): Promise<number | null> {
 	}
 	return SOCKS_PROCESS.port;
 }
-
-process.on("SIGTERM", () => {
-	stopSocks5();
-});
-
-process.on("SIGINT", () => {
-	stopSocks5();
-});
