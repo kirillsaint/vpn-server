@@ -22,11 +22,10 @@ export const env = load({
 	API_URL: String,
 	PORT: Number,
 	SECRET_KEY: String,
-	TYPE: { type: ["all" as const, "chrome" as const], optional: true },
-	OUTLINE_API_URL: { type: String, optional: true },
-	OUTLINE_API_FINGERPRINT: { type: String, optional: true },
-	VLESS_PUBLIC_KEY: { type: String, optional: true },
-	VLESS_SHORT_ID: { type: String, optional: true },
+	OUTLINE_API_URL: String,
+	OUTLINE_API_FINGERPRINT: String,
+	VLESS_PUBLIC_KEY: String,
+	VLESS_SHORT_ID: String,
 });
 
 const server = express();
@@ -58,107 +57,170 @@ server.get("/", async (req, res) => {
 	return res.json({ error: false });
 });
 
-if (env.TYPE !== "chrome") {
-	server.get("/clients", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-		const clients = await outline.getUsers();
-		return res.json({
-			error: false,
-			clients: await Promise.all(
-				clients.map(async e => {
-					return { ...e };
-				})
-			),
-		});
+server.get("/clients", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const clients = await outline.getUsers();
+	return res.json({
+		error: false,
+		clients: await Promise.all(
+			clients.map(async e => {
+				return { ...e, socks_port: await getSocks5ProxyPort() };
+			})
+		),
 	});
+});
 
-	server.get("/vless/clients", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-		const clients = await vless.getUsers();
-		return res.json({ error: false, clients });
+server.get("/vless/clients", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const clients = await vless.getUsers();
+	return res.json({ error: false, clients });
+});
+
+server.post("/clients/create", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	let newClient = await outline.createUser();
+	if (req.body.name) {
+		await outline.renameUser(newClient.id, req.body.name);
+		newClient.name = req.body.name;
+	}
+
+	return res.json({
+		error: false,
+		client: { ...newClient, socks_port: await getSocks5ProxyPort() },
 	});
+});
 
-	server.post("/clients/create", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-		let newClient = await outline.createUser();
-		if (req.body.name) {
-			await outline.renameUser(newClient.id, req.body.name);
-			newClient.name = req.body.name;
-		}
+server.post("/vless/clients/create", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	let newClient = await vless.createUser();
 
-		return res.json({
-			error: false,
-			client: newClient,
-		});
+	return res.json({
+		error: false,
+		client: newClient,
 	});
+});
 
-	server.post("/vless/clients/create", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-		let newClient = await vless.createUser();
+server.get("/clients/get/:id", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const client = await outline.getUser(req.params.id);
+	if (!client) {
+		return res.json({ error: true, description: "Client not found" });
+	}
 
-		return res.json({
-			error: false,
-			client: newClient,
-		});
+	return res.json({
+		error: false,
+		client: { ...client, socks_port: await getSocks5ProxyPort() },
 	});
+});
 
-	server.get("/clients/get/:id", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-		const client = await outline.getUser(req.params.id);
-		if (!client) {
-			return res.json({ error: true, description: "Client not found" });
-		}
+server.get("/vless/clients/get/:id", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const client = await vless.getUser(req.params.id);
+	if (!client) {
+		return res.json({ error: true, description: "Client not found" });
+	}
 
-		return res.json({
-			error: false,
-			client: client,
-		});
+	return res.json({
+		error: false,
+		client: client,
 	});
+});
 
-	server.get("/vless/clients/get/:id", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-		const client = await vless.getUser(req.params.id);
-		if (!client) {
-			return res.json({ error: true, description: "Client not found" });
-		}
+server.post("/clients/enable", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const client = await outline.getUser(req.body.id);
+	if (!client) {
+		return res.json({ error: true, description: "Client not found" });
+	}
+	await outline.enableUser(client.id);
 
-		return res.json({
-			error: false,
-			client: client,
-		});
-	});
+	return res.json({ error: false });
+});
 
-	server.post("/clients/enable", async (req, res) => {
+server.post("/vless/clients/enable", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+
+	await vless.enableUser(req.body.id);
+
+	return res.json({ error: false });
+});
+
+server.post("/clients/disable", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const client = await outline.getUser(req.body.id);
+	if (!client) {
+		return res.json({ error: true, description: "Client not found" });
+	}
+
+	await outline.disableUser(client.id);
+
+	return res.json({ error: false });
+});
+
+server.post("/vless/clients/disable", async (req, res) => {
+	if (
+		req.header("secret-key") !== env.SECRET_KEY &&
+		env.NODE_ENV === "production"
+	) {
+		return res.status(403).send({ error: true, description: "Bad key" });
+	}
+	const client = await vless.getUser(req.body.id);
+	if (!client) {
+		return res.json({ error: true, description: "Client not found" });
+	}
+
+	await vless.disableUser(client.id);
+
+	return res.json({ error: false });
+});
+
+server.post("/clients/delete", async (req, res) => {
+	try {
 		if (
 			req.header("secret-key") !== env.SECRET_KEY &&
 			env.NODE_ENV === "production"
@@ -169,42 +231,16 @@ if (env.TYPE !== "chrome") {
 		if (!client) {
 			return res.json({ error: true, description: "Client not found" });
 		}
-		await outline.enableUser(client.id);
+		await outline.deleteUser(client.id);
 
 		return res.json({ error: false });
-	});
+	} catch (error) {
+		return res.json({ error: true, description: `${error}` });
+	}
+});
 
-	server.post("/vless/clients/enable", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-
-		await vless.enableUser(req.body.id);
-
-		return res.json({ error: false });
-	});
-
-	server.post("/clients/disable", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-		const client = await outline.getUser(req.body.id);
-		if (!client) {
-			return res.json({ error: true, description: "Client not found" });
-		}
-
-		await outline.disableUser(client.id);
-
-		return res.json({ error: false });
-	});
-
-	server.post("/vless/clients/disable", async (req, res) => {
+server.post("/vless/clients/delete", async (req, res) => {
+	try {
 		if (
 			req.header("secret-key") !== env.SECRET_KEY &&
 			env.NODE_ENV === "production"
@@ -216,73 +252,23 @@ if (env.TYPE !== "chrome") {
 			return res.json({ error: true, description: "Client not found" });
 		}
 
-		await vless.disableUser(client.id);
+		await vless.deleteUser(client.id);
 
 		return res.json({ error: false });
-	});
+	} catch (error) {
+		return res.json({ error: true, description: `${error}` });
+	}
+});
 
-	server.post("/clients/delete", async (req, res) => {
-		try {
-			if (
-				req.header("secret-key") !== env.SECRET_KEY &&
-				env.NODE_ENV === "production"
-			) {
-				return res.status(403).send({ error: true, description: "Bad key" });
-			}
-			const client = await outline.getUser(req.body.id);
-			if (!client) {
-				return res.json({ error: true, description: "Client not found" });
-			}
-			await outline.deleteUser(client.id);
+startSocks5();
 
-			return res.json({ error: false });
-		} catch (error) {
-			return res.json({ error: true, description: `${error}` });
-		}
-	});
+process.on("SIGTERM", () => {
+	stopSocks5();
+});
 
-	server.post("/vless/clients/delete", async (req, res) => {
-		try {
-			if (
-				req.header("secret-key") !== env.SECRET_KEY &&
-				env.NODE_ENV === "production"
-			) {
-				return res.status(403).send({ error: true, description: "Bad key" });
-			}
-			const client = await vless.getUser(req.body.id);
-			if (!client) {
-				return res.json({ error: true, description: "Client not found" });
-			}
-
-			await vless.deleteUser(client.id);
-
-			return res.json({ error: false });
-		} catch (error) {
-			return res.json({ error: true, description: `${error}` });
-		}
-	});
-} else {
-	startSocks5();
-
-	server.post("/connect", async (req, res) => {
-		if (
-			req.header("secret-key") !== env.SECRET_KEY &&
-			env.NODE_ENV === "production"
-		) {
-			return res.status(403).send({ error: true, description: "Bad key" });
-		}
-
-		return res.json({ error: false, port: await getSocks5ProxyPort() });
-	});
-
-	process.on("SIGTERM", () => {
-		stopSocks5();
-	});
-
-	process.on("SIGINT", () => {
-		stopSocks5();
-	});
-}
+process.on("SIGINT", () => {
+	stopSocks5();
+});
 
 setIPv6();
 
