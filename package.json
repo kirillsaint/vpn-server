@@ -5,6 +5,7 @@
 	"license": "MIT",
 	"scripts": {
 		"start": "node dist/index.js",
+		"prestart": "node env.fix.js",
 		"build": "rm -rf dist && tsc --outDir ./dist",
 		"watch": "nodemon src/index.ts --ignore ./public/",
 		"update": "ts-node src/scripts/update.ts"
