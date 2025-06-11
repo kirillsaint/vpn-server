@@ -17,6 +17,7 @@
 		"express": "^4.19.2",
 		"input": "^1.0.1",
 		"net": "^1.0.2",
+		"node-cache": "^5.1.2",
 		"node-cron": "^3.0.3",
 		"systeminformation": "^5.25.11",
 		"ts-dotenv": "^0.9.1"
