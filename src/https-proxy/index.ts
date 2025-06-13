@@ -84,26 +84,33 @@ export async function startHttpsProxy(): Promise<number> {
 
 	/* ----- обычный HTTP ----- */
 	server.on("request", async (req, res) => {
-		if (!(await verifyBasic(req.headers["proxy-authorization"] as string)))
-			return sendError(res); // 407
+		try {
+			if (!(await verifyBasic(req.headers["proxy-authorization"] as string)))
+				return sendError(res); // 407
 
-		const url = new URL(req.url!, "http://dummy");
-		const proxyReq = http.request(
-			{
-				host: url.hostname,
-				port: url.port || 80,
-				method: req.method,
-				path: url.pathname + url.search,
-				headers: { ...req.headers, host: url.host },
-			},
-			r => {
-				res.writeHead(r.statusCode!, r.headers);
-				r.pipe(res);
-			}
-		);
+			const url = new URL(req.url!, "http://dummy");
+			const proxyReq = http.request(
+				{
+					host: url.hostname,
+					port: url.port || 80,
+					method: req.method,
+					path: url.pathname + url.search,
+					headers: { ...req.headers, host: url.host },
+				},
+				r => {
+					res.writeHead(r.statusCode!, r.headers);
+					r.pipe(res);
+				}
+			);
 
-		proxyReq.on("error", () => res.end());
-		req.pipe(proxyReq);
+			proxyReq.on("error", () => res.end());
+			req.pipe(proxyReq);
+		} catch (error) {
+			console.error(error);
+			try {
+				sendError(res, 500);
+			} catch (error) {}
+		}
 	});
 
 	server.listen(port, "0.0.0.0", () =>

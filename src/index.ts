@@ -3,14 +3,10 @@ import express from "express";
 import cron from "node-cron";
 import { load } from "ts-dotenv";
 import util from "util";
-import {
-	getHttpsProxyPort,
-	startHttpsProxy,
-	stopHttpsProxy,
-} from "./https-proxy";
 import { OutlineVPN } from "./outline";
 import random from "./random";
 import getSpeed from "./scripts/getSpeed";
+import { getSocks5ProxyPort, startSocks5, stopSocks5 } from "./socks5";
 import { getLoad, getServerIPs, handleError, sleep } from "./utils";
 import { VlessVPN } from "./vless";
 
@@ -73,7 +69,7 @@ server.get("/clients", async (req, res) => {
 		error: false,
 		clients: await Promise.all(
 			clients.map(async e => {
-				return { ...e, socks_port: await getHttpsProxyPort() };
+				return { ...e, socks_port: await getSocks5ProxyPort() };
 			})
 		),
 	});
@@ -105,7 +101,7 @@ server.post("/clients/create", async (req, res) => {
 
 	return res.json({
 		error: false,
-		client: { ...newClient, socks_port: await getHttpsProxyPort() },
+		client: { ...newClient, socks_port: await getSocks5ProxyPort() },
 	});
 });
 
@@ -138,7 +134,7 @@ server.get("/clients/get/:id", async (req, res) => {
 
 	return res.json({
 		error: false,
-		client: { ...client, socks_port: await getHttpsProxyPort() },
+		client: { ...client, socks_port: await getSocks5ProxyPort() },
 	});
 });
 
@@ -264,10 +260,10 @@ server.post("/vless/clients/delete", async (req, res) => {
 	}
 });
 
-startHttpsProxy();
+startSocks5();
 
-process.on("SIGTERM", stopHttpsProxy);
-process.on("SIGINT", stopHttpsProxy);
+process.on("SIGTERM", stopSocks5);
+process.on("SIGINT", stopSocks5);
 
 setIPv6();
 
