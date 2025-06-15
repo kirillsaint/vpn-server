@@ -5,7 +5,7 @@ import net from "net";
 import NodeCache from "node-cache";
 import util from "util";
 import { env } from "..";
-import { handleError } from "../utils";
+import { handleError, killPort } from "../utils";
 
 const authCache = new NodeCache();
 const execAsync = util.promisify(require("child_process").exec);
@@ -100,9 +100,7 @@ export async function startHttpsProxy(): Promise<number> {
 
 	const port = 6732;
 	try {
-		await execAsync(
-			`sudo kill -9 $(sudo lsof -t -i:${port}) 2>/dev/null || true`
-		);
+		killPort(port);
 	} catch (error) {}
 	const server = http.createServer();
 

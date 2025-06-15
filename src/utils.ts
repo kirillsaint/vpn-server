@@ -1,4 +1,5 @@
 import axios from "axios";
+import { execSync } from "child_process";
 import * as net from "net";
 import os from "os";
 import si from "systeminformation";
@@ -143,5 +144,56 @@ export async function handleError(func: string, text: string) {
 		});
 	} catch (error) {
 		console.error(error);
+	}
+}
+
+/**
+ * Проверяет, занят ли порт, и при необходимости убивает связанные процессы.
+ *
+ * @param port   Номер TCP-порта (1-65535)
+ * @param signal Сигнал для kill (по умолчанию "9" = SIGKILL;
+ *               можно указать "15" для мягкого завершения и т. д.)
+ * @returns      true  – порт был занят (процессы убиты или попытка сделана)
+ *               false – порт свободен
+ * @throws       любые неожиданные ошибки spawn/exec
+ */
+export function killPort(port: number, signal: string = "9"): boolean {
+	if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+		throw new Error("Port must be an integer between 1 and 65535");
+	}
+
+	try {
+		// lsof выводит только PIDs (-t) процессов, слушающих порт
+		const out = execSync(
+			`sudo lsof -nP -iTCP:${port} -sTCP:LISTEN -t`,
+			{ encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] } // игнорируем stderr
+		);
+		const pids = out.split("\n").filter(Boolean);
+
+		if (pids.length === 0) {
+			console.log(`Port ${port} is free ✅`);
+			return false;
+		}
+
+		console.log(`Port ${port} is busy. PIDs: ${pids.join(", ")}`);
+
+		for (const pid of pids) {
+			try {
+				execSync(`sudo kill -${signal} ${pid}`);
+				console.log(` → Killed PID ${pid} with SIG${signal}`);
+			} catch (e: any) {
+				console.error(
+					` ⚠️  Could not kill PID ${pid}: ${(e as Error).message}`
+				);
+			}
+		}
+		return true;
+	} catch (e: any) {
+		// lsof возвращает код 1, если ничего не найдено — это не ошибка
+		if ((e as any).status === 1) {
+			console.log(`Port ${port} is free ✅`);
+			return false;
+		}
+		throw e; // всё остальное — неожиданная ошибка
 	}
 }
