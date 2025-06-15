@@ -3,10 +3,12 @@ import { Buffer } from "buffer";
 import http, { IncomingMessage, ServerResponse } from "http";
 import net from "net";
 import NodeCache from "node-cache";
+import util from "util";
 import { env } from "..";
 import { handleError } from "../utils";
 
 const authCache = new NodeCache();
+const execAsync = util.promisify(require("child_process").exec);
 
 export const HTTPS_PROCESS = {
 	port: null as number | null,
@@ -95,6 +97,7 @@ export async function startHttpsProxy(): Promise<number> {
 	if (isServerRunning()) return HTTPS_PROCESS.port as number;
 
 	const port = 6732;
+	await execAsync("sudo kill -9 $(sudo lsof -t -i:3000)");
 	const server = http.createServer();
 
 	/* ------------------- CONNECT (TLS‑туннель) ------------------- */
