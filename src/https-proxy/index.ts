@@ -1,6 +1,6 @@
 import axios from "axios";
 import { Buffer } from "buffer";
-import http, { IncomingMessage, ServerResponse } from "http";
+import http from "http";
 import net from "net";
 import NodeCache from "node-cache";
 import { env } from "..";
@@ -13,40 +13,28 @@ export const HTTPS_PROCESS = {
 	server: null as http.Server | null,
 };
 
-/** Проверяем, запущен ли сервер и слушает ли он порт */
-function isServerRunning(): boolean {
-	return HTTPS_PROCESS.server?.listening ?? false;
-}
-
-/* -------------------------------------------------------------------------- */
-/*                      Проверка заголовка Proxy‑Authorization                 */
-/* -------------------------------------------------------------------------- */
+/* --- проверяем заголовок Proxy-Authorization: Basic … --- */
 async function verifyBasic(header?: string): Promise<boolean> {
 	if (!header) return false;
 
-	const [schemeRaw, encoded] = header.trim().split(/\s+/);
-	if (schemeRaw?.toLowerCase() !== "basic" || !encoded) return false;
+	const [scheme, encoded] = header.split(" ");
+	if (scheme.toLowerCase() !== "basic") return false;
 
-	let decoded: string;
-	try {
-		decoded = Buffer.from(encoded, "base64").toString("utf8");
-	} catch {
-		return false; // неправильная Base64‑строка
-	}
-
-	const [token] = decoded.split(":");
-	if (!token) return false;
+	const decoded = Buffer.from(encoded, "base64").toString("utf8");
+	const [token] = decoded.split(":"); // username = token
 
 	try {
 		let result: boolean | undefined = authCache.get(token);
 		if (result === undefined) {
-			/* гарантируем, что в env.API_URL нет протокола */
-			const apiHost = env.API_URL.replace(/^https?:\/\//, "");
-			const { data } = await axios.get(`https://${apiHost}/auth/me`, {
+			const { data } = await axios.get(`https://${env.API_URL}/auth/me`, {
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			result = data.user?.subscription !== "none";
-			authCache.set(token, result, 1800); // 30 минут
+			if (data.user.subscription !== "none") {
+				authCache.set(token, true, 1800);
+				result = true;
+			} else {
+				result = false;
+			}
 		}
 
 		return result;
@@ -56,99 +44,61 @@ async function verifyBasic(header?: string): Promise<boolean> {
 	}
 }
 
-/* -------------------------------------------------------------------------- */
-/*                       Формирование ответа с ошибкой                        */
-/* -------------------------------------------------------------------------- */
-function sendError(
-	target: ServerResponse | net.Socket,
-	code: 407 | 403 | 500 = 407
-) {
-	const statusMessage =
-		code === 407
-			? "Proxy Authentication Required"
-			: code === 403
-			? "Forbidden"
-			: "Internal Server Error";
+/* --- ответ 407 или 403 --- */
+function sendError(target: http.ServerResponse | net.Socket, code = 407) {
+	const msg = `HTTP/1.1 ${code} ${
+		code === 407 ? "Proxy Authentication Required" : "Forbidden"
+	}\r\nProxy-Authenticate: Basic realm="VPN"\r\n\r\n`;
 
-	const headerLines =
-		code === 407 ? `Proxy-Authenticate: Basic realm="VPN"\r\n` : "";
-
-	const msg = `HTTP/1.1 ${code} ${statusMessage}\r\n${headerLines}\r\n`;
-
-	if ("writeHead" in target) {
-		const res = target as ServerResponse;
-		const headers: Record<string, string> = {};
-		if (code === 407) headers["Proxy-Authenticate"] = 'Basic realm="VPN"';
-		res.writeHead(code, headers);
-		res.end(statusMessage);
-	} else {
-		const sock = target as net.Socket;
-		sock.write(msg);
-		sock.destroy();
-	}
+	"writeHead" in target
+		? (target.writeHead(code, {
+				"Proxy-Authenticate": 'Basic realm="VPN"',
+		  }),
+		  target.end("Bad credentials"))
+		: (target.write(msg), (target as net.Socket).destroy());
 }
 
-/* -------------------------------------------------------------------------- */
-/*                           Запуск HTTPS‑прокси                              */
-/* -------------------------------------------------------------------------- */
+/* ---------------- запуск прокси ---------------- */
 export async function startHttpsProxy(): Promise<number> {
-	if (isServerRunning()) return HTTPS_PROCESS.port as number;
-
 	const port = 83722;
 	const server = http.createServer();
 
-	/* ------------------- CONNECT (TLS‑туннель) ------------------- */
+	/* ----- CONNECT (TLS-туннель) ----- */
 	server.on(
 		"connect",
-		async (req: IncomingMessage, clientSock: net.Socket, head: Buffer) => {
+		async (req: http.IncomingMessage, clientSock: net.Socket, head: Buffer) => {
 			if (!(await verifyBasic(req.headers["proxy-authorization"] as string)))
 				return sendError(clientSock); // 407
 
 			const [host, p = "443"] = (req.url || "").split(":");
-			const remote = net.connect(+p, host, () => {
-				clientSock.write("HTTP/1.1 200 Connection Established\r\n\r\n");
-				if (head.length) remote.write(head);
-				remote.pipe(clientSock);
-				clientSock.pipe(remote);
-			});
-
-			/* Симметричное закрытие */
-			const cleanup = () => {
-				clientSock.destroy();
-				remote.destroy();
-			};
-
-			remote.on("error", cleanup);
-			clientSock.on("error", cleanup);
-			remote.on("close", cleanup);
-			clientSock.on("close", cleanup);
+			const remote = net
+				.connect(+p, host, () => {
+					clientSock.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+					if (head.length) remote.write(head);
+					remote.pipe(clientSock);
+					clientSock.pipe(remote);
+				})
+				.on("error", () => clientSock.destroy());
 		}
 	);
 
-	/* ----------------------- Обычный HTTP ------------------------ */
+	/* ----- обычный HTTP ----- */
 	server.on("request", async (req, res) => {
 		try {
 			if (!(await verifyBasic(req.headers["proxy-authorization"] as string)))
 				return sendError(res); // 407
 
-			const isAbsolute =
-				req.url!.startsWith("http://") || req.url!.startsWith("https://");
-			const dummyBase = `http://${req.headers.host ?? "dummy"}`;
-			const url = new URL(isAbsolute ? req.url! : dummyBase + req.url!);
-
-			/* исключаем Proxy‑Authorization, чтобы токен не утёк */
-			const { ["proxy-authorization"]: _ignored, ...safeHeaders } = req.headers;
-
+			const url = new URL(req.url!, "http://dummy");
 			const proxyReq = http.request(
 				{
 					host: url.hostname,
 					port: url.port || 80,
 					method: req.method,
 					path: url.pathname + url.search,
-					headers: { ...safeHeaders, host: url.host },
+					headers: { ...req.headers, host: url.host },
 				},
 				r => {
-					res.writeHead(r.statusCode ?? 502, r.headers);
+					res.writeHead(r.statusCode!, r.headers);
 					r.pipe(res);
 				}
 			);
@@ -159,9 +109,7 @@ export async function startHttpsProxy(): Promise<number> {
 			console.error(error);
 			try {
 				sendError(res, 500);
-			} catch {
-				/* игнорируем вторичную ошибку */
-			}
+			} catch (error) {}
 		}
 	});
 
@@ -174,20 +122,18 @@ export async function startHttpsProxy(): Promise<number> {
 	return port;
 }
 
-/* -------------------------------------------------------------------------- */
-/*                       Управление жизненным циклом                          */
-/* -------------------------------------------------------------------------- */
+/* ---------------- вспомогательные функции ---------------- */
 export const stopHttpsProxy = () =>
 	HTTPS_PROCESS.server
-		? new Promise<void>(resolve => {
+		? new Promise<void>(resolve =>
 				HTTPS_PROCESS.server!.close(() => {
 					console.log("[https-proxy] stopped");
 					HTTPS_PROCESS.server = null;
 					HTTPS_PROCESS.port = null;
 					resolve();
-				});
-		  })
+				})
+		  )
 		: Promise.resolve();
 
 export const getHttpsProxyPort = async () =>
-	isServerRunning() ? (HTTPS_PROCESS.port as number) : startHttpsProxy();
+	HTTPS_PROCESS.server ? HTTPS_PROCESS.port : startHttpsProxy();
