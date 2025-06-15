@@ -15,8 +15,6 @@ const exec = util.promisify(require("child_process").exec);
 
 	try {
 		console.log("killing ports");
-		await exec("sudo kill -9 $(sudo lsof -t -i:3000)").catch(e =>
-			console.error(e)
-		);
+		await exec("sudo kill -9 $(sudo lsof -t -i:3000) 2>/dev/null || true");
 	} catch (error) {}
 })();

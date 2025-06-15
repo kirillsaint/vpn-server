@@ -99,7 +99,11 @@ export async function startHttpsProxy(): Promise<number> {
 	if (isServerRunning()) return HTTPS_PROCESS.port as number;
 
 	const port = 6732;
-	await execAsync("sudo kill -9 $(sudo lsof -t -i:3000)");
+	try {
+		await execAsync(
+			`sudo kill -9 $(sudo lsof -t -i:${port}) 2>/dev/null || true`
+		);
+	} catch (error) {}
 	const server = http.createServer();
 
 	/* ------------------- CONNECT (TLS‑туннель) ------------------- */
