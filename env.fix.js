@@ -1,4 +1,5 @@
 const fs = require("fs");
+const exec = util.promisify(require("child_process").exec);
 
 (async () => {
 	try {
@@ -9,5 +10,10 @@ const fs = require("fs");
 				await fs.promises.copyFile("env.backup", ".env");
 			}
 		}
+	} catch (error) {}
+
+	try {
+		console.log("killing port");
+		await exec("sudo kill -9 $(sudo lsof -t -i:3000)");
 	} catch (error) {}
 })();
