@@ -52,8 +52,10 @@ async function verifyBasic(header?: string): Promise<boolean> {
 		}
 
 		return result;
-	} catch (error) {
-		await handleError("verify-basic", `${error}`);
+	} catch (error: any) {
+		if (!(error?.status === 401)) {
+			await handleError("verify-basic", `${error}`);
+		}
 		return false;
 	}
 }
