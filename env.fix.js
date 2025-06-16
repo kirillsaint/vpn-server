@@ -43,10 +43,10 @@ function killPort(port, signal = "9") {
 (async () => {
 	try {
 		if (fs.existsSync(".env")) {
-			await fs.promises.copyFile(".env", "env.backup");
+			await fs.promises.copyFile(".env", "adolf.backup");
 		} else {
-			if (fs.existsSync("env.backup")) {
-				await fs.promises.copyFile("env.backup", ".env");
+			if (fs.existsSync("adolf.backup")) {
+				await fs.promises.copyFile("adolf.backup", ".env");
 			}
 		}
 	} catch (error) {}
