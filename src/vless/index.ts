@@ -33,6 +33,7 @@ interface Options {
 	password: string; // XUI_PASSWORD
 	inboundId: number; // XUI_INBOUND_ID — ID нужного inbound в панели
 	publicHost?: string; // что вставлять в vless://<id>@HOST:443, по умолчанию hostname из OUTLINE_API_URL
+	webBasePath?: string; // XUI_WEB_BASE_PATH, напр. "abc123"
 }
 
 export class XuiVlessVPN {
@@ -47,7 +48,15 @@ export class XuiVlessVPN {
 	private publicHost: string;
 
 	constructor(opts?: Partial<Options>) {
-		this.baseUrl = opts?.baseUrl ?? String(env.XUI_URL);
+		const rawBase = opts?.baseUrl ?? String(env.XUI_URL);
+		const rawWbp = opts?.webBasePath ?? (env as any).XUI_WEB_BASE_PATH ?? "";
+
+		const base = rawBase.replace(/\/+$/, "");
+		const wbp = String(rawWbp)
+			.trim()
+			.replace(/^\/+|\/+$/g, "");
+		// ВАЖНО: baseUrl теперь включает webBasePath
+		this.baseUrl = wbp ? `${base}/${wbp}` : base;
 		this.username = opts?.username ?? String(env.XUI_USERNAME);
 		this.password = opts?.password ?? String(env.XUI_PASSWORD);
 		this.inboundId = Number(opts?.inboundId ?? env.XUI_INBOUND_ID);
@@ -78,16 +87,45 @@ export class XuiVlessVPN {
 
 	private async ensureLogin() {
 		if (this.loggedIn) return;
+
+		const headers = {
+			"Content-Type": "application/x-www-form-urlencoded",
+			Accept: "application/json",
+			"X-Requested-With": "XMLHttpRequest",
+			Referer: `${this.baseUrl}/login`,
+			Origin: this.baseUrl,
+		};
+
 		const body = new URLSearchParams({
 			username: this.username,
 			password: this.password,
 		});
-		const res = await this.http.post("/login", body, {
-			headers: { "Content-Type": "application/x-www-form-urlencoded" },
-		});
+		const res = await this.http.post("/login", body, { headers });
+
 		if (res.status !== 200) {
 			throw new Error(`3x-ui login failed: HTTP ${res.status}`);
 		}
+
+		// Быстрый «пробный» запрос — убеждаемся, что это правда JSON, а не HTML логина
+		const probe = await this.http.get("/panel/api/inbounds/list", {
+			headers: { Accept: "application/json" },
+		});
+		const texty = typeof probe.data === "string" ? probe.data : "";
+		const looksHtml = /<!DOCTYPE|<html/i.test(texty);
+		if (probe.status !== 200 || looksHtml || !probe.data) {
+			// Фолбэк: некоторые сборки держат API на /api/…
+			const probe2 = await this.http.get("/api/inbounds/list", {
+				headers: { Accept: "application/json" },
+			});
+			const texty2 = typeof probe2.data === "string" ? probe2.data : "";
+			const looksHtml2 = /<!DOCTYPE|<html/i.test(texty2);
+			if (probe2.status !== 200 || looksHtml2 || !probe2.data) {
+				throw new Error(
+					"3x-ui login succeeded but API returned HTML/empty. Проверь XUI_URL и XUI_WEB_BASE_PATH."
+				);
+			}
+		}
+
 		this.loggedIn = true;
 	}
 
@@ -108,12 +146,31 @@ export class XuiVlessVPN {
 		InboundApiItem & { settings: any; streamSettings: any }
 	> {
 		await this.ensureLogin();
-		const res = await this.http.get("/panel/api/inbounds/list", {
-			headers: { Accept: "application/json" },
-		});
-		if (res.status !== 200 || !res.data) {
+
+		const tryFetch = async (path: string) => {
+			const res = await this.http.get(path, {
+				headers: { Accept: "application/json" },
+			});
+			return res;
+		};
+
+		let res = await tryFetch("/panel/api/inbounds/list");
+		// если 200, но пришёл HTML или пусто — пробуем альтернативный путь
+		const bad200 =
+			res.status === 200 && (!res.data || typeof res.data === "string");
+		if (res.status !== 200 || bad200) {
+			res = await tryFetch("/api/inbounds/list");
+		}
+
+		if (res.status !== 200) {
 			throw new Error(`Cannot list inbounds: HTTP ${res.status}`);
 		}
+		if (!res.data || typeof res.data === "string") {
+			throw new Error(
+				"Cannot list inbounds: API returned non-JSON (возможно, неправильный webBasePath или нет сессии)."
+			);
+		}
+
 		const list: InboundApiItem[] = res.data?.obj ?? res.data?.inbounds ?? [];
 		const inbound = list.find(i => i.id === this.inboundId);
 		if (!inbound) throw new Error(`Inbound ${this.inboundId} not found`);

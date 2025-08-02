@@ -32,6 +32,7 @@ export const env = load({
 	XUI_USERNAME: String,
 	XUI_PASSWORD: String,
 	XUI_INBOUND_ID: String,
+	XUI_WEB_BASE_PATH: String,
 	VLESS_PUBLIC_KEY: { type: String, optional: true },
 	VLESS_SHORT_ID: { type: String, optional: true },
 });
