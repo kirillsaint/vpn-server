@@ -257,7 +257,7 @@ export class XuiVlessVPN {
 				clients: [
 					{
 						id: userId,
-						email: `u_${userId.slice(0, 8)}`,
+						email: `${userId}@nbn.ru`,
 						enable: true,
 						flow,
 						limitIp: 0,
