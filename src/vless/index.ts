@@ -4,6 +4,7 @@ import { wrapper } from "axios-cookiejar-support";
 import { randomUUID } from "crypto";
 import { CookieJar } from "tough-cookie";
 import { env } from "..";
+import random from "../random";
 
 export interface Client {
 	id: string;
@@ -257,21 +258,19 @@ export class XuiVlessVPN {
 				clients: [
 					{
 						id: userId,
-						email: `${userId}@nbn.ru`,
+						email: random.string(9),
 						enable: true,
 						flow,
 						limitIp: 0,
 						totalGB: 0,
 						expiryTime: 0,
 						tgId: "",
-						subId: Math.random().toString(36).slice(2),
+						subId: random.string(32),
 						reset: 0,
 					},
 				],
 			}),
 		};
-
-		console.log(payload);
 
 		const addRes = await this.http.post(
 			"/panel/api/inbounds/addClient",
