@@ -12,7 +12,7 @@ import { OutlineVPN } from "./outline";
 import random from "./random";
 import getSpeed from "./scripts/getSpeed";
 import { getLoad, getServerIPs, handleError, sleep } from "./utils";
-import { VlessVPN } from "./vless";
+import { XuiVlessVPN } from "./vless";
 
 const execAsync = util.promisify(require("child_process").exec);
 
@@ -28,8 +28,12 @@ export const env = load({
 	SECRET_KEY: String,
 	OUTLINE_API_URL: String,
 	OUTLINE_API_FINGERPRINT: String,
-	VLESS_PUBLIC_KEY: String,
-	VLESS_SHORT_ID: String,
+	XUI_URL: String,
+	XUI_USERNAME: String,
+	XUI_PASSWORD: String,
+	XUI_INBOUND_ID: String,
+	VLESS_PUBLIC_KEY: { type: String, optional: true },
+	VLESS_SHORT_ID: { type: String, optional: true },
 });
 
 const server = express();
@@ -37,7 +41,7 @@ export const outline = new OutlineVPN({
 	apiUrl: env.OUTLINE_API_URL || "",
 	fingerprint: env.OUTLINE_API_FINGERPRINT || "",
 });
-const vless = new VlessVPN({ configPath: "/usr/local/etc/xray/config.json" });
+const vless = new XuiVlessVPN();
 
 server.use(express.json());
 
