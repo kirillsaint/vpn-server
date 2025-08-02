@@ -271,6 +271,8 @@ export class XuiVlessVPN {
 			}),
 		};
 
+		console.log(payload);
+
 		const addRes = await this.http.post(
 			"/panel/api/inbounds/addClient",
 			payload,
@@ -281,6 +283,8 @@ export class XuiVlessVPN {
 		if (addRes.status !== 200) {
 			throw new Error(`addClient failed: HTTP ${addRes.status}`);
 		}
+
+		console.log(addRes);
 
 		const serverName =
 			inbound.streamSettings?.realitySettings?.serverNames?.[0] ??
