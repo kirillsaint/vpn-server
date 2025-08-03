@@ -12,7 +12,7 @@ import { OutlineVPN } from "./outline";
 import random from "./random";
 import getSpeed from "./scripts/getSpeed";
 import { getLoad, getServerIPs, handleError, sleep } from "./utils";
-import { XuiVlessVPN } from "./vless";
+import { MarzbanVlessVPN } from "./vless";
 
 const execAsync = util.promisify(require("child_process").exec);
 
@@ -28,11 +28,11 @@ export const env = load({
 	SECRET_KEY: String,
 	OUTLINE_API_URL: String,
 	OUTLINE_API_FINGERPRINT: String,
-	XUI_URL: String,
-	XUI_USERNAME: String,
-	XUI_PASSWORD: String,
-	XUI_INBOUND_ID: String,
-	XUI_WEB_BASE_PATH: String,
+	MARZBAN_URL: String,
+	MARZBAN_USERNAME: String,
+	MARZBAN_PASSWORD: String,
+	MARZBAN_INBOUND_TAG: String,
+	VLESS_SERVER_NAME: String,
 	VLESS_PUBLIC_KEY: { type: String, optional: true },
 	VLESS_SHORT_ID: { type: String, optional: true },
 });
@@ -42,7 +42,7 @@ export const outline = new OutlineVPN({
 	apiUrl: env.OUTLINE_API_URL || "",
 	fingerprint: env.OUTLINE_API_FINGERPRINT || "",
 });
-const vless = new XuiVlessVPN();
+const vless = new MarzbanVlessVPN();
 
 server.use(express.json());
 

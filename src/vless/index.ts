@@ -1,374 +1,213 @@
-// services/xui-vless.ts
-import axios from "axios";
-import { wrapper } from "axios-cookiejar-support";
+// services/marzban-vless.ts
+import axios, { AxiosInstance } from "axios";
 import { randomUUID } from "crypto";
-import { CookieJar } from "tough-cookie";
 import { env } from "..";
-import random from "../random";
 
 export interface Client {
-	id: string;
+	id: string; // UUID VLESS
 	flow: "xtls-rprx-vision";
 }
-
 export interface User {
-	id: string;
+	id: string; // UUID VLESS
 	flow: "xtls-rprx-vision";
-	key: string;
+	key: string; // vless://...
 }
-
-type InboundApiItem = {
-	id: number;
-	port: number;
-	protocol: "vless" | string;
-	settings: any | string;
-	streamSettings: any | string;
-	sniffing?: any | string;
-	remark?: string;
-	enable?: boolean;
-};
 
 interface Options {
-	baseUrl: string; // XUI_URL, напр. http://<ip>:2053
-	username: string; // XUI_USERNAME
-	password: string; // XUI_PASSWORD
-	inboundId: number; // XUI_INBOUND_ID — ID нужного inbound в панели
-	publicHost?: string; // что вставлять в vless://<id>@HOST:443, по умолчанию hostname из OUTLINE_API_URL
-	webBasePath?: string; // XUI_WEB_BASE_PATH, напр. "abc123"
+	baseUrl: string; // MARZBAN_URL, например http://127.0.0.1:8000
+	username: string; // MARZBAN_USERNAME
+	password: string; // MARZBAN_PASSWORD
+	inboundTag: string; // MARZBAN_INBOUND_TAG, напр. "VLESS TCP REALITY"
+	publicHost?: string; // для vless:// <id>@HOST:443
+	serverName?: string; // VLESS_SERVER_NAME
+	publicKey?: string; // VLESS_PUBLIC_KEY
+	shortId?: string; // VLESS_SHORT_ID
+	port?: number; // 443 по умолчанию
 }
 
-export class XuiVlessVPN {
-	private http;
-	private jar = new CookieJar();
-	private loggedIn = false;
+export class MarzbanVlessVPN {
+	private http: AxiosInstance;
+	private token: string | null = null;
 
 	private baseUrl: string;
 	private username: string;
 	private password: string;
-	private inboundId: number;
+
+	private inboundTag: string;
 	private publicHost: string;
+	private serverName: string;
+	private pbk: string;
+	private sid: string;
+	private port: number;
 
 	constructor(opts?: Partial<Options>) {
-		const rawBase = opts?.baseUrl ?? String(env.XUI_URL);
-		const rawWbp = opts?.webBasePath ?? (env as any).XUI_WEB_BASE_PATH ?? "";
+		const base = (opts?.baseUrl ?? String(env.MARZBAN_URL)).replace(/\/+$/, "");
+		this.baseUrl = base; // без /api
+		this.username = opts?.username ?? String(env.MARZBAN_USERNAME);
+		this.password = opts?.password ?? String(env.MARZBAN_PASSWORD);
 
-		const base = rawBase.replace(/\/+$/, "");
-		const wbp = String(rawWbp)
-			.trim()
-			.replace(/^\/+|\/+$/g, "");
-		// ВАЖНО: baseUrl теперь включает webBasePath
-		this.baseUrl = wbp ? `${base}/${wbp}` : base;
-		this.username = opts?.username ?? String(env.XUI_USERNAME);
-		this.password = opts?.password ?? String(env.XUI_PASSWORD);
-		this.inboundId = Number(opts?.inboundId ?? env.XUI_INBOUND_ID);
+		this.inboundTag =
+			opts?.inboundTag ??
+			String(env.MARZBAN_INBOUND_TAG || "VLESS TCP REALITY");
 		this.publicHost =
 			opts?.publicHost ??
 			(() => {
 				try {
 					return new URL(
-						env?.OUTLINE_API_URL || process.env.OUTLINE_API_URL || this.baseUrl
+						env?.OUTLINE_API_URL ||
+							process.env.OUTLINE_API_URL ||
+							"http://127.0.0.1"
 					).hostname;
 				} catch {
 					return "127.0.0.1";
 				}
 			})();
 
-		this.http = wrapper(
-			axios.create({
-				baseURL: this.baseUrl.replace(/\/+$/, ""),
-				jar: this.jar,
-				withCredentials: true,
-				// 3x-ui иногда отвечает пустым телом при 200 — не падать на этом
-				validateStatus: () => true,
-			})
-		);
+		this.serverName =
+			opts?.serverName ?? String(env.VLESS_SERVER_NAME || "google.com");
+		this.pbk = opts?.publicKey ?? String(env.VLESS_PUBLIC_KEY);
+		this.sid = opts?.shortId ?? String(env.VLESS_SHORT_ID);
+		this.port = Number(opts?.port ?? 443);
+
+		this.http = axios.create({
+			baseURL: this.baseUrl + "/api",
+			validateStatus: () => true,
+			timeout: 15_000,
+		});
 	}
 
 	// --- auth ----------------------------------------------------
-
-	private async ensureLogin() {
-		if (this.loggedIn) return;
-
-		const headers = {
-			"Content-Type": "application/x-www-form-urlencoded",
-			Accept: "application/json",
-			"X-Requested-With": "XMLHttpRequest",
-			Referer: `${this.baseUrl}/login`,
-			Origin: this.baseUrl,
-		};
-
-		const body = new URLSearchParams({
-			username: this.username,
-			password: this.password,
-		});
-		const res = await this.http.post("/login", body, { headers });
-
-		if (res.status !== 200) {
-			throw new Error(`3x-ui login failed: HTTP ${res.status}`);
+	private async ensureToken() {
+		if (this.token) return;
+		const res = await this.http.post(
+			"/admin/token",
+			new URLSearchParams({
+				username: this.username,
+				password: this.password,
+			}),
+			{ headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+		);
+		if (res.status !== 200 || !res.data?.access_token) {
+			throw new Error(`Marzban auth failed: HTTP ${res.status}`);
 		}
-
-		// Быстрый «пробный» запрос — убеждаемся, что это правда JSON, а не HTML логина
-		const probe = await this.http.get("/panel/api/inbounds/list", {
-			headers: { Accept: "application/json" },
-		});
-		const texty = typeof probe.data === "string" ? probe.data : "";
-		const looksHtml = /<!DOCTYPE|<html/i.test(texty);
-		if (probe.status !== 200 || looksHtml || !probe.data) {
-			// Фолбэк: некоторые сборки держат API на /api/…
-			const probe2 = await this.http.get("/api/inbounds/list", {
-				headers: { Accept: "application/json" },
-			});
-			const texty2 = typeof probe2.data === "string" ? probe2.data : "";
-			const looksHtml2 = /<!DOCTYPE|<html/i.test(texty2);
-			if (probe2.status !== 200 || looksHtml2 || !probe2.data) {
-				throw new Error(
-					"3x-ui login succeeded but API returned HTML/empty. Проверь XUI_URL и XUI_WEB_BASE_PATH."
-				);
-			}
-		}
-
-		this.loggedIn = true;
+		this.token = res.data.access_token; // /api/admin/token :contentReference[oaicite:14]{index=14}
+		this.http.defaults.headers.common.Authorization = `Bearer ${this.token}`;
 	}
 
 	// --- helpers -------------------------------------------------
-
-	private parseMaybeJSON<T>(v: T | string): T {
-		if (typeof v === "string") {
-			try {
-				return JSON.parse(v);
-			} catch {
-				/* ignore */
-			}
-		}
-		return v as any;
-	}
-
-	private async getInbound(): Promise<
-		InboundApiItem & { settings: any; streamSettings: any }
-	> {
-		await this.ensureLogin();
-
-		const tryFetch = async (path: string) => {
-			const res = await this.http.get(path, {
-				headers: { Accept: "application/json" },
-			});
-			return res;
-		};
-
-		let res = await tryFetch("/panel/api/inbounds/list");
-		// если 200, но пришёл HTML или пусто — пробуем альтернативный путь
-		const bad200 =
-			res.status === 200 && (!res.data || typeof res.data === "string");
-		if (res.status !== 200 || bad200) {
-			res = await tryFetch("/api/inbounds/list");
-		}
-
-		if (res.status !== 200) {
-			throw new Error(`Cannot list inbounds: HTTP ${res.status}`);
-		}
-		if (!res.data || typeof res.data === "string") {
-			throw new Error(
-				"Cannot list inbounds: API returned non-JSON (возможно, неправильный webBasePath или нет сессии)."
-			);
-		}
-
-		const list: InboundApiItem[] = res.data?.obj ?? res.data?.inbounds ?? [];
-		const inbound = list.find(i => i.id === this.inboundId);
-		if (!inbound) throw new Error(`Inbound ${this.inboundId} not found`);
-
-		const settings = this.parseMaybeJSON(inbound.settings);
-		const streamSettings = this.parseMaybeJSON(inbound.streamSettings);
-		return { ...inbound, settings, streamSettings };
-	}
-
-	private buildVlessKey(params: {
-		userId: string;
-		flow: string;
-		serverName: string;
-		pbk: string;
-		sid: string;
-		port?: number; // default 443
-	}): string {
-		const port = params.port ?? 443;
-		// как у вас: type=tcp&security=reality&fp=chrome&sni=<serverName>&pbk=<publicKey>&sid=<shortId>&spx=%2F
+	private buildVlessKey(params: { userId: string }): string {
+		// как и раньше: type=tcp&security=reality&fp=chrome&sni=<serverName>&pbk=<publicKey>&sid=<shortId>&spx=%2F
 		return (
-			`vless://${params.userId}@${this.publicHost}:${port}` +
-			`?flow=${encodeURIComponent(params.flow)}` +
-			`&type=tcp&security=reality&fp=chrome` +
-			`&sni=${encodeURIComponent(params.serverName)}` +
-			`&pbk=${encodeURIComponent(params.pbk)}` +
-			`&sid=${encodeURIComponent(params.sid)}` +
+			`vless://${params.userId}@${this.publicHost}:${this.port}` +
+			`?flow=xtls-rprx-vision&type=tcp&security=reality&fp=chrome` +
+			`&sni=${encodeURIComponent(this.serverName)}` +
+			`&pbk=${encodeURIComponent(this.pbk)}` +
+			`&sid=${encodeURIComponent(this.sid)}` +
 			`&spx=%2F`
 		);
 	}
 
-	// --- public API (совместимая с вашим интерфейсом) -----------
-
+	// --- public API ----------------------------------------------
 	public async getUsers(): Promise<User[]> {
-		const inbound = await this.getInbound();
-
-		const serverName =
-			inbound.streamSettings?.realitySettings?.serverNames?.[0] ??
-			"cloudflare.com";
-		const pbk =
-			inbound.streamSettings?.realitySettings?.settings?.publicKey ??
-			env.VLESS_PUBLIC_KEY;
-		const sid = (inbound.streamSettings?.realitySettings?.shortIds ?? [
-			env.VLESS_SHORT_ID,
-		])[0];
-		const port = inbound.port ?? 443;
-
-		const clients: Client[] = (inbound.settings?.clients ?? []).map(
-			(c: any) => ({
-				id: c.id,
-				flow: (c.flow || "xtls-rprx-vision") as "xtls-rprx-vision",
+		await this.ensureToken();
+		const res = await this.http.get("/users"); // список пользователей. :contentReference[oaicite:15]{index=15}
+		if (res.status !== 200 || !Array.isArray(res.data)) {
+			throw new Error(`Cannot list users: HTTP ${res.status}`);
+		}
+		// У Marzban UUID VLESS хранится в proxies.vless.id
+		return res.data
+			.map((u: any) => {
+				const vlessId = u?.proxies?.vless?.id;
+				// if (!vlessId) return null;
+				return {
+					id: vlessId || "unknown",
+					flow: "xtls-rprx-vision" as const,
+					key: this.buildVlessKey({ userId: vlessId }),
+				};
 			})
-		);
-
-		return clients.map(c => ({
-			id: c.id,
-			flow: c.flow,
-			key: this.buildVlessKey({
-				userId: c.id,
-				flow: c.flow,
-				serverName,
-				pbk,
-				sid,
-				port,
-			}),
-		}));
+			.filter(Boolean);
 	}
 
 	public async getUser(id: string): Promise<User | null> {
-		const users = await this.getUsers();
-		return users.find(u => u.id === id) ?? null;
+		await this.ensureToken();
+		const res = await this.http.get(`/users`); // нет прямого поиска по vless-id
+		if (res.status !== 200 || !Array.isArray(res.data)) return null;
+		const u = res.data.find((x: any) => x?.proxies?.vless?.id === id);
+		if (!u) return null;
+		return {
+			id,
+			flow: "xtls-rprx-vision",
+			key: this.buildVlessKey({ userId: id }),
+		};
 	}
 
 	public async createUser(id?: string): Promise<User> {
-		await this.ensureLogin();
-		const inbound = await this.getInbound();
+		await this.ensureToken();
+		const username = (id || randomUUID()).replace(/-/g, "").slice(0, 24); // допустимая длина 3..32
+		const body = {
+			username,
+			proxies: {
+				vless: {
+					/* пусто = сервер сам сгенерит uuid */
+				},
+			},
+			inbounds: { vless: [this.inboundTag] },
+			expire: 0,
+			data_limit: 0,
+			status: "active",
+		}; // поля по API Add User. :contentReference[oaicite:16]{index=16}
 
-		const userId = id || randomUUID();
-		const flow: User["flow"] = "xtls-rprx-vision";
-
-		// /panel/api/inbounds/addClient  — settings ДОЛЖЕН быть строкой (stringified)
-		const payload = {
-			id: this.inboundId,
-			settings: JSON.stringify({
-				clients: [
-					{
-						id: userId,
-						email: random.string(9),
-						enable: true,
-						flow,
-						limitIp: 0,
-						totalGB: 0,
-						expiryTime: 0,
-						tgId: "",
-						subId: random.string(32),
-						reset: 0,
-					},
-				],
-			}),
-		};
-
-		const addRes = await this.http.post(
-			"/panel/api/inbounds/addClient",
-			payload,
-			{
-				headers: { Accept: "application/json" },
-			}
-		);
-		if (addRes.status !== 200) {
-			throw new Error(`addClient failed: HTTP ${addRes.status}`);
-		}
-		console.log(addRes);
-		if (!addRes.data.success) {
+		const res = await this.http.post("/user", body, {
+			headers: { Accept: "application/json" },
+		});
+		if (res.status !== 200) {
 			throw new Error(
-				`addClient failed: HTTP RESPONSE ${JSON.stringify(addRes.data)}`
+				`add user failed: HTTP ${res.status} ${JSON.stringify(res.data)}`
 			);
 		}
-
-		const serverName =
-			inbound.streamSettings?.realitySettings?.serverNames?.[0] ??
-			"cloudflare.com";
-		const pbk =
-			inbound.streamSettings?.realitySettings?.settings?.publicKey ??
-			env.VLESS_PUBLIC_KEY;
-		const sid = (inbound.streamSettings?.realitySettings?.shortIds ?? [
-			env.VLESS_SHORT_ID,
-		])[0];
-		const port = inbound.port ?? 443;
-
+		const vlessId = res.data?.proxies?.vless?.id;
+		if (!vlessId) throw new Error("add user ok but vless id missing");
 		return {
-			id: userId,
-			flow,
-			key: this.buildVlessKey({ userId, flow, serverName, pbk, sid, port }),
+			id: vlessId,
+			flow: "xtls-rprx-vision",
+			key: this.buildVlessKey({ userId: vlessId }),
 		};
 	}
 
 	public async deleteUser(id: string): Promise<boolean> {
-		await this.ensureLogin();
-		// POST /panel/api/inbounds/:id/delClient/:clientId
-		const res = await this.http.post(
-			`/panel/api/inbounds/${this.inboundId}/delClient/${id}`,
-			null,
-			{
-				headers: { Accept: "application/json" },
-			}
-		);
-		if (res.status !== 200) {
-			throw new Error(`delClient failed: HTTP ${res.status}`);
-		}
+		await this.ensureToken();
+		// Пользователь адресуется username, а не uuid, поэтому найдём username
+		const res = await this.http.get("/users");
+		if (res.status !== 200) return false;
+		const u = (res.data as any[]).find(x => x?.proxies?.vless?.id === id);
+		if (!u?.username) return false;
+		const del = await this.http.delete(
+			`/user/${encodeURIComponent(u.username)}`
+		); // Remove User. :contentReference[oaicite:17]{index=17}
+		if (del.status !== 200)
+			throw new Error(`delete failed: HTTP ${del.status}`);
 		return true;
 	}
 
 	public async disableUser(id: string): Promise<boolean> {
-		await this.ensureLogin();
-		// Предпочтительно — updateClient с enable=false
-		// POST /panel/api/inbounds/updateClient/:clientId
-		const body = {
-			id: this.inboundId,
-			settings: JSON.stringify({
-				clients: [{ id, enable: false }],
-			}),
-		};
-		const res = await this.http.post(
-			`/panel/api/inbounds/updateClient/${id}`,
-			body,
-			{
-				headers: { Accept: "application/json" },
-			}
-		);
-
-		// На старых билдах updateClient может отсутствовать — fallback на удаление
-		if (res.status !== 200) {
-			await this.deleteUser(id);
-		}
-		return true;
+		await this.ensureToken();
+		const res = await this.http.get("/users");
+		const u = (res.data as any[]).find(x => x?.proxies?.vless?.id === id);
+		if (!u?.username) return false;
+		const upd = await this.http.put(`/user/${encodeURIComponent(u.username)}`, {
+			status: "disabled",
+		}); // Modify User. :contentReference[oaicite:18]{index=18}
+		return upd.status === 200;
 	}
 
 	public async enableUser(id: string): Promise<boolean> {
-		await this.ensureLogin();
-		// Аналогично disable: пробуем updateClient enable=true, иначе — создать
-		const body = {
-			id: this.inboundId,
-			settings: JSON.stringify({
-				clients: [{ id, enable: true }],
-			}),
-		};
-		const res = await this.http.post(
-			`/panel/api/inbounds/updateClient/${id}`,
-			body,
-			{
-				headers: { Accept: "application/json" },
-			}
-		);
-
-		if (res.status !== 200) {
-			// если не смогли обновить — создаём такого пользователя
-			await this.createUser(id);
-		}
-		return true;
+		await this.ensureToken();
+		const res = await this.http.get("/users");
+		const u = (res.data as any[]).find(x => x?.proxies?.vless?.id === id);
+		if (!u?.username) return false;
+		const upd = await this.http.put(`/user/${encodeURIComponent(u.username)}`, {
+			status: "active",
+		}); // Modify User. :contentReference[oaicite:19]{index=19}
+		return upd.status === 200;
 	}
 }
