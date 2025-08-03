@@ -118,7 +118,6 @@ export class MarzbanVlessVPN {
 		return res.data
 			.map((u: any) => {
 				const vlessId = u?.proxies?.vless?.id;
-				// if (!vlessId) return null;
 				return {
 					id: vlessId || "unknown",
 					flow: "xtls-rprx-vision" as const,
