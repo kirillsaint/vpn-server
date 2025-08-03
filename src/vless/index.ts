@@ -147,7 +147,7 @@ export class MarzbanVlessVPN {
 			username,
 			proxies: {
 				vless: {
-					/* пусто = сервер сам сгенерит uuid */
+					flow: "xtls-rprx-vision",
 				},
 			},
 			inbounds: { vless: [this.inboundTag] },
