@@ -282,8 +282,12 @@ export class XuiVlessVPN {
 		if (addRes.status !== 200) {
 			throw new Error(`addClient failed: HTTP ${addRes.status}`);
 		}
-
 		console.log(addRes);
+		if (!addRes.data.success) {
+			throw new Error(
+				`addClient failed: HTTP RESPONSE ${JSON.stringify(addRes.data)}`
+			);
+		}
 
 		const serverName =
 			inbound.streamSettings?.realitySettings?.serverNames?.[0] ??
